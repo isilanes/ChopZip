@@ -55,15 +55,15 @@ import FileManipulation as FM
 # Read arguments:
 parser = optparse.OptionParser()
 
-parser.add_option("-o", "--origin",
-                  dest="origin",
-                  help="Originating machine. Default: localhost.",
+parser.add_option("-o", "--source",
+                  dest="source",
+                  help="Source machine. Default: localhost.",
                   default='localhost')
 
 parser.add_option("-d", "--destination",
                   dest="destination",
                   help="Destination machine. Default: None.",
-                  default=False)
+                  default=None)
 
 parser.add_option("-v", "--verbose",
                   dest="verbose",
@@ -116,14 +116,6 @@ class machine:
     if exists:
       sys.exit('Aborting: remote dir "%s" exists!' % (m.remotedir(0)))
 
-  def backup(self,offset=0,rsync=None):
-    '''
-    '''
-
-    cmnd = '%s %s' % (rsync, self.remotedir(0))
-
-    doit(cmnd)
-
 #--------------------------------------------------------------------------------#
 
 def doit(cmnd=None):
@@ -140,29 +132,31 @@ def doit(cmnd=None):
 
 #--------------------------------------------------------------------------------#
 
-def read_config(config=None):
-  
-  lines = FM.file2array(config,'cb')
+def read_config(options=None):
 
-  props = {}
-  for line in lines:
-    aline = line.split()
-    m = aline[0]
-    props[m] = machine()
-    props[m].name = m
-    props[m].ip   = aline[1]
-    props[m].user = aline[2]
-    props[m].dir  = aline[3]
+  result = []
+  for machine in [o.source,o.destination]:
+    conf_file = '%s/%s.conf' % (conf,machine)
+    
+    lines = FM.file2array(conf_file,'cb')
 
-  return props
+    props = {}
+    for line in lines:
+      aline = line.replace('\n','').split('=')
+      props[aline[0]] = aline[1]
+
+    result.append(props)
+
+  return result
 
 #--------------------------------------------------------------------------------#
 
-def make_checks(machines):
+def make_checks(o):
 
-  if o.origin == 'localhost':
+  if o.source == 'localhost':
     if o.destination:
-      if not o.destination in machines:
+      conf_file = '%s/%s.conf' % (conf,o.destination)
+      if not os.path.isfile(conf_file):
         sys.exit('Error: destination "%s" is not available.' % (o.destination))
 
     else:
@@ -189,6 +183,36 @@ def gimme_date(offset=0):
 
 #--------------------------------------------------------------------------------#
 
+def backup(machines=None,offset=0):
+  '''
+  Actually make the backup.
+  '''
+
+  src = machines[0]
+  dst = machines[1]
+
+  cmnd = '%s %s %s@%s:%s_%s' % (rsync, src['FROMDIR'], dst['USER'], dst['IP'], dst['TODIR'],gimme_date(offset))
+  print cmnd
+
+  #doit(cmnd)
+
+#--------------------------------------------------------------------------------#
+
+def cp_last(machines=None,maxt=1):
+  '''
+  Make a copy of last available dir into "current".
+    maxd = max number of days we want to move back.
+  '''
+ 
+  mm = machines[1]
+
+  print maxt
+  for i in range(1,maxt+1):
+    cmnd = 'ssh %s@%s "file %s_%s && echo OK"' % (mm['USER'], mm['IP'], mm['TODIR'], gimme_date(-i))
+    print i, cmnd
+
+#--------------------------------------------------------------------------------#
+
 if __name__ == '__main__':
 
   # General variables:
@@ -196,22 +220,21 @@ if __name__ == '__main__':
   user     = os.environ['LOGNAME']                         # username of script user
   home     = os.environ['HOME']                            # your home dir
   logfile  = '%s/.LOGs/backup_log' % (home)                # file to put a log entry of what we did
-  conf     = '%s/.LOGs/myback/config' % (home)             # configuration file
-  cp       = '/bin/cp -P'                                  # command to use for copying files
-
-  # Read configuration:
-  machines = read_config(conf)
+  conf     = '%s/.myback' % (home)                         # configuration dir
+  mxback   = 10                                            # max number of days to go back searching for latest dir
+  #cp       = '/bin/cp -P'                                  # command to use for copying files
+  #cpl      = '/bin/cp -al'                                 # command to use for copying files in link mode
 
   # Make checks:
-  make_checks(machines)
+  make_checks(o)
 
-  # Bring up machine object:
-  m = machines[o.destination]
+  # Read configurations:
+  m = read_config(o)
 
-  # Check if remote dir with same name present:
-  m.checkdir(0)
+  # Copy last available (whithin specified limit) to "current":
+  cp_last(m,mxback)
 
   # Make backup:
-  m.backup(0,rsync)
+  backup(m,0)
 
   # Then rsync:
