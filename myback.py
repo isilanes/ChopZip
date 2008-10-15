@@ -152,7 +152,7 @@ def backup(machines=None,offset=0):
   src = machines[0]
   dst = machines[1]
 
-  cmnd = '%s %s %s%s_%s' % (rsync, src['FROMDIR'], dst['RSYNCAT'], dst['TODIR'],gimme_date(offset))
+  cmnd = '%s %s/ %s%s_%s/' % (rsync, src['FROMDIR'], dst['RSYNCAT'], dst['TODIR'],gimme_date(offset))
   doit(cmnd)
 
 #--------------------------------------------------------------------------------#
