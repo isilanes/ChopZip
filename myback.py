@@ -23,14 +23,7 @@ backup_with_rsync.pl, by me.
 
 USAGE
 
-% myback.py $what $mach $often
-
-where:
-
-$what  = whether to back up a remote machine here ('from') or this machine
-         to a remote one ('to').
-$mach  = machine to get/put backup data (depending on $what)
-$often = string with periodicity (daily, weekly and monthly are defined)
+% myback.py -h
 
 I always use this script with cron.
 
@@ -55,7 +48,7 @@ import FileManipulation as FM
 # Read arguments:
 parser = optparse.OptionParser()
 
-parser.add_option("-o", "--source",
+parser.add_option("-s", "--source",
                   dest="source",
                   help="Source machine. Default: localhost.",
                   default='localhost')
@@ -80,41 +73,9 @@ parser.add_option("-y", "--dryrun",
 
 #--------------------------------------------------------------------------------#
 
-class machine:
-
-  def __init__(self,ip=None,user=None,dir=None,name=None):
-    self.ip   = ip
-    self.user = user
-    self.dir  = dir
-    self.name = name
-
-  def remotedir(self,offset=0):
-    '''
-    Returns string with remote location for "offset" days from today.
-      offset = offset from today, in days. 0 = today, -1 = yesterday...
-    '''
-
-    return '%s_%s' % (m.dir, gimme_date(offset))
-
-  def checkdir(self,offset=0):
-    '''
-    Checks if remote backup dir already exists, and abort if it does.
-      offset = offset from today, in days. 0 = today, -1 = yesterday...
-    '''
-
-    cmnd = 'ssh %s@%s "file %s && echo OK"' % (self.user, self.ip, self.remotedir(offset))
-
-    if o.verbose:
-      print cmnd
-
-    exists = False
-    if not o.dryrun:
-      response = S.cli(cmnd,True)
-      if 'OK' in '.'.join(response):
-        exists = True
-
-    if exists:
-      sys.exit('Aborting: remote dir "%s" exists!' % (m.remotedir(0)))
+# Make dry runs verbose:
+if o.dryrun:
+  o.verbose = True
 
 #--------------------------------------------------------------------------------#
 
@@ -191,10 +152,8 @@ def backup(machines=None,offset=0):
   src = machines[0]
   dst = machines[1]
 
-  cmnd = '%s %s %s@%s:%s_%s' % (rsync, src['FROMDIR'], dst['USER'], dst['IP'], dst['TODIR'],gimme_date(offset))
-  print cmnd
-
-  #doit(cmnd)
+  cmnd = '%s %s %s%s_%s' % (rsync, src['FROMDIR'], dst['RSYNCAT'], dst['TODIR'],gimme_date(offset))
+  doit(cmnd)
 
 #--------------------------------------------------------------------------------#
 
@@ -206,10 +165,16 @@ def cp_last(machines=None,maxt=1):
  
   mm = machines[1]
 
-  print maxt
+  mms = mm['SSHCOMM']
+  mmt = mm['TODIR']
+  gd0 = gimme_date(0)
   for i in range(1,maxt+1):
-    cmnd = 'ssh %s@%s "file %s_%s && echo OK"' % (mm['USER'], mm['IP'], mm['TODIR'], gimme_date(-i))
-    print i, cmnd
+    gdi = gimme_date(-i)
+    cmnd = '%s "file %s_%s && echo OK"' % (mms, mmt, gdi)
+    test = S.cli(cmnd,True)
+    if test[-1] == 'OK\n':
+      cmnd = '%s "cp -al %s_%s %s_%s"' % (mms, mmt, gdi, mmt, gd0)
+      doit(cmnd)
 
 #--------------------------------------------------------------------------------#
 
@@ -222,8 +187,6 @@ if __name__ == '__main__':
   logfile  = '%s/.LOGs/backup_log' % (home)                # file to put a log entry of what we did
   conf     = '%s/.myback' % (home)                         # configuration dir
   mxback   = 10                                            # max number of days to go back searching for latest dir
-  #cp       = '/bin/cp -P'                                  # command to use for copying files
-  #cpl      = '/bin/cp -al'                                 # command to use for copying files in link mode
 
   # Make checks:
   make_checks(o)
@@ -237,4 +200,5 @@ if __name__ == '__main__':
   # Make backup:
   backup(m,0)
 
-  # Then rsync:
+  # At last, log:
+
