@@ -40,6 +40,7 @@ import datetime
 
 sys.path.append(os.environ['HOME']+'/WCs/PythonModules')
 
+import Private as P
 import System as S
 import FileManipulation as FM
 
@@ -187,6 +188,9 @@ if __name__ == '__main__':
   logfile  = '%s/.LOGs/backup_log' % (home)                # file to put a log entry of what we did
   conf     = '%s/.myback' % (home)                         # configuration dir
   mxback   = 10                                            # max number of days to go back searching for latest dir
+
+  # Hook to SSH agent:
+  P.ssh_hook(user)
 
   # Make checks:
   make_checks(o)
