@@ -177,7 +177,7 @@ def cp_last(machines=None,maxt=1):
   cmnd = '%s "file %s_%s && echo OK"' % (mms, mmt, gd0)
   test = S.cli(cmnd,True)
 
-  if test[-1] != 'OK\n':
+  if test and test[-1] != 'OK\n':
     for i in range(1,maxt+1):
       gdi = gimme_date(-i)
       cmnd = '%s "file %s_%s && echo OK"' % (mms, mmt, gdi)
@@ -194,7 +194,7 @@ def write_log(file):
   Save log entry.
   '''
 
-  logstring = 'Backed up FROM: %s TO: %s AT: %s' % (o.source, o.destination, gimme_date(0,True))
+  logstring = 'Backed up FROM: %s TO: %s AT: %s\n' % (o.source, o.destination, gimme_date(0,True))
 
   FM.w2file(logfile,logstring)
 
