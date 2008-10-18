@@ -129,17 +129,22 @@ def make_checks(o):
 
 #--------------------------------------------------------------------------------#
 
-def gimme_date(offset=0):
+def gimme_date(offset=0,seconds=None):
   '''
   Gives a date with a given offset in days, with respect to today.
     offset = if 0, then it's today. If 1, it is tomorrow. If -2 is two days ago.
              You get the picture.
   '''
   
-  day   = datetime.date.today()
-  delta = datetime.timedelta(days=offset)
-  day   = day + delta
-  date  = day.strftime('%Y.%m.%d')
+  if seconds:
+    sec   = datetime.datetime.today()
+    date  = sec.strftime('%Y.%m.%d %H:%M:%S')
+
+  else:
+    day   = datetime.date.today()
+    delta = datetime.timedelta(days=offset)
+    day   = day + delta
+    date  = day.strftime('%Y.%m.%d')
 
   return date
 
@@ -164,18 +169,50 @@ def cp_last(machines=None,maxt=1):
     maxd = max number of days we want to move back.
   '''
  
-  mm = machines[1]
-
+  gd0 = gimme_date(0)
+  mm  = machines[1]
   mms = mm['SSHCOMM']
   mmt = mm['TODIR']
-  gd0 = gimme_date(0)
-  for i in range(1,maxt+1):
-    gdi = gimme_date(-i)
-    cmnd = '%s "file %s_%s && echo OK"' % (mms, mmt, gdi)
-    test = S.cli(cmnd,True)
-    if test[-1] == 'OK\n':
-      cmnd = '%s "cp -al %s_%s %s_%s"' % (mms, mmt, gdi, mmt, gd0)
-      doit(cmnd)
+
+  cmnd = '%s "file %s_%s && echo OK"' % (mms, mmt, gd0)
+  test = S.cli(cmnd,True)
+
+  if test[-1] != 'OK\n':
+    for i in range(1,maxt+1):
+      gdi = gimme_date(-i)
+      cmnd = '%s "file %s_%s && echo OK"' % (mms, mmt, gdi)
+      test = S.cli(cmnd,True)
+      if test[-1] == 'OK\n':
+        cmnd = '%s "cp -al %s_%s %s_%s"' % (mms, mmt, gdi, mmt, gd0)
+        doit(cmnd)
+	break
+
+#--------------------------------------------------------------------------------#
+
+def write_log(file):
+  '''
+  Save log entry.
+  '''
+
+  logstring = 'Backed up FROM: %s TO: %s AT: %s' % (o.source, o.destination, gimme_date(0,True))
+
+  FM.w2file(logfile,logstring)
+
+#--------------------------------------------------------------------------------#
+
+def build_rsync(in_rsync):
+  '''
+  Build a more complete rsync command.
+  '''
+
+  # Global excludes:
+  out_rsync = '%s --exclude-from=%s/global.excludes ' % (in_rsync, conf)
+
+  # Verbosity:
+  if o.verbose:
+    out_rsync += ' -vh --progress '
+
+  return out_rsync
 
 #--------------------------------------------------------------------------------#
 
@@ -187,7 +224,11 @@ if __name__ == '__main__':
   home     = os.environ['HOME']                            # your home dir
   logfile  = '%s/.LOGs/backup_log' % (home)                # file to put a log entry of what we did
   conf     = '%s/.myback' % (home)                         # configuration dir
+  logfile  = '%s/log' % (conf)                             # log file
   mxback   = 10                                            # max number of days to go back searching for latest dir
+
+  # Build rsync command:
+  rsync = build_rsync(rsync)
 
   # Hook to SSH agent:
   P.ssh_hook(user)
@@ -205,4 +246,4 @@ if __name__ == '__main__':
   backup(m,0)
 
   # At last, log:
-
+  write_log(logfile)
