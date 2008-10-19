@@ -33,10 +33,12 @@ svn_revision = 1
 
 '''
 
+import datetime
+import glob
 import optparse
 import os
+import re
 import sys
-import datetime
 
 sys.path.append(os.environ['HOME']+'/WCs/PythonModules')
 
@@ -96,7 +98,7 @@ def doit(cmnd=None):
 
 def read_config(options=None):
 
-  result = []
+  machines = []
   for machine in [o.source,o.destination]:
     conf_file = '%s/%s.conf' % (conf,machine)
     
@@ -107,9 +109,9 @@ def read_config(options=None):
       aline = line.replace('\n','').split('=')
       props[aline[0]] = aline[1]
 
-    result.append(props)
+    machines.append(props)
 
-  return result
+  return machines
 
 #--------------------------------------------------------------------------------#
 
@@ -216,6 +218,96 @@ def build_rsync(in_rsync):
 
 #--------------------------------------------------------------------------------#
 
+def find_deletable(m):
+  '''
+  Find old, deletable, backups.
+  '''
+
+  mm = m[1]
+  mmt = mm['TODIR']
+
+  cmnd = '%s "/bin/ls -d %s*"' % (mm['SSHCOMM'],mmt)
+  dirlist = S.cli(cmnd,True)
+
+  rejects_by_name = []
+
+  dates = []
+  for dn in dirlist:
+    dn  = dn.replace('\n','')
+    d2d = dir2date(dn)
+
+    if d2d == None:
+      rejects_by_name.append(dn)
+
+    else:
+      dates.append(d2d)
+
+  maxd   = 0
+  valids = {0:None}
+  for v in mm['VALIDBACKS'].split():
+    ii,jj = [int(x) for x in v.split(':')]
+    for i in range(ii):
+      ij = (i+1)*jj
+      valids[ij] = None
+      if ij > maxd:
+        maxd = ij
+
+  rejects = []
+  for d in dates:
+    accepted = False
+    for di in range(d,maxd+1):
+      if valids.has_key(di):
+        if not valids[di]:
+	  valids[di] = d
+          accepted = True
+	  break
+
+    if not accepted:
+      rejects.append(d)
+
+  print "The following dirs should be deleted:"
+
+  for dn in rejects_by_name:
+    print dn
+
+  for r in rejects:
+    print gimme_dir(r,mm)
+
+  print "\nThe following dirs are being kept:"
+
+  for v in valids:
+    if not valids[v] == None:
+      print "DIR:  %s  IN BEHALF OF:  %s" % (gimme_dir(-v,mm), gimme_dir(-valids[v],mm))
+
+#--------------------------------------------------------------------------------#
+
+def gimme_dir(i=0,m=None):
+  '''
+  Given a day offset and machine conf, return backup dir.
+  '''
+
+  return "%s_%s" % (m['TODIR'],gimme_date(i))
+
+#--------------------------------------------------------------------------------#
+
+def dir2date(dirname=None):
+  '''
+  Returns the day offset of a given dir.
+  '''
+
+  offset = dirname.split('_')[-1]
+  if re.match('....\...\...',offset):
+    y,m,d  = [int(x) for x in offset.split('.')]
+    delta  = datetime.date.today() - datetime.date(y,m,d)
+    offset = delta.days
+
+  else:
+    offset = None
+
+  return offset
+
+#--------------------------------------------------------------------------------#
+
 if __name__ == '__main__':
 
   # General variables:
@@ -241,6 +333,9 @@ if __name__ == '__main__':
 
   # Copy last available (whithin specified limit) to "current":
   cp_last(m,mxback)
+
+  # Determine if any to delete:
+  find_deletable(m)
 
   # Make backup:
   backup(m,0)
