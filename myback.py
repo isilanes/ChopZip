@@ -198,7 +198,7 @@ def write_log(file):
 
   logstring = 'Backed up FROM: %s TO: %s AT: %s\n' % (o.source, o.destination, gimme_date(0,True))
 
-  FM.w2file(logfile,logstring)
+  FM.w2file(logfile,logstring,'a')
 
 #--------------------------------------------------------------------------------#
 
@@ -273,7 +273,7 @@ def find_deletable(m):
   for r in rejects:
     print gimme_dir(r,mm)
 
-  print "\nThe following dirs are being kept:"
+  print "\nThe following dirs should be kept:"
 
   for v in valids:
     if not valids[v] == None:
@@ -314,9 +314,8 @@ if __name__ == '__main__':
   rsync    = 'rsync -a -e ssh --delete --delete-excluded ' # base rsync command to use
   user     = os.environ['LOGNAME']                         # username of script user
   home     = os.environ['HOME']                            # your home dir
-  logfile  = '%s/.LOGs/backup_log' % (home)                # file to put a log entry of what we did
   conf     = '%s/.myback' % (home)                         # configuration dir
-  logfile  = '%s/log' % (conf)                             # log file
+  logfile  = '%s/myback.log' % (conf)                      # log file
   mxback   = 10                                            # max number of days to go back searching for latest dir
 
   # Build rsync command:
