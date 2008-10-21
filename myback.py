@@ -277,7 +277,7 @@ def find_deletable(m):
 
   for v in valids:
     if not valids[v] == None:
-      print "DIR:  %s  IN BEHALF OF:  %s" % (gimme_dir(-v,mm), gimme_dir(-valids[v],mm))
+      print "DIR:  %s  IN BEHALF OF:  %s" % (gimme_dir(-valids[v],mm), gimme_dir(-v,mm))
 
 #--------------------------------------------------------------------------------#
 
