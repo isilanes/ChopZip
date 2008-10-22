@@ -29,7 +29,7 @@ I always use this script with cron.
 
 VERSION
 
-svn_revision = 1
+svn_revision = r11 (2008-10-22 11:39:48)
 
 '''
 
@@ -39,6 +39,7 @@ import optparse
 import os
 import re
 import sys
+import operator
 
 sys.path.append(os.environ['HOME']+'/WCs/PythonModules')
 
@@ -246,14 +247,16 @@ def find_deletable(m):
   valids = {0:None}
   for v in mm['VALIDBACKS'].split():
     ii,jj = [int(x) for x in v.split(':')]
-    for i in range(ii):
-      ij = (i+1)*jj
+    for i in range(1,ii+1):
+      ij = i*jj
       valids[ij] = None
       if ij > maxd:
         maxd = ij
 
+  exists = {}
   rejects = []
   for d in dates:
+    exists[d] = True
     accepted = False
     for di in range(d,maxd+1):
       if valids.has_key(di):
@@ -265,19 +268,53 @@ def find_deletable(m):
     if not accepted:
       rejects.append(d)
 
-  print "The following dirs should be deleted:"
+  # Some verbose data:
+  if o.verbose:
+    '''
+    Table with summary of dirs that exist, dirs that should be backed up,
+    and crossings of the two lists.
+    '''
 
-  for dn in rejects_by_name:
-    print dn
+    print "Day  Exists?  Save? Choice"
+    print "---  -------  ----- ------"
 
-  for r in rejects:
-    print gimme_dir(r,mm)
+    for i in range(maxd+1):
+      print "%3i " % (i),
 
-  print "\nThe following dirs should be kept:"
+      if exists.has_key(i ): print " exists ",
+      else:                  print "   --   ",
 
-  for v in valids:
-    if not valids[v] == None:
-      print "DIR:  %s  IN BEHALF OF:  %s" % (gimme_dir(-valids[v],mm), gimme_dir(-v,mm))
+      if valids.has_key(i):
+        print " save " ,
+
+        if valids[i] != None: print "  %3i " % (valids[i]),
+        else:                 print "    - ",
+
+      else: print "  --  ",
+    
+      print ''
+    print ''
+
+    # Suggest to delete:
+    print "The following dirs should be deleted:"
+  
+    print "*) Not named by date:"
+    for dn in rejects_by_name:
+      print dn
+
+    print "*) Its date is not needed:"
+    for r in rejects:
+      print gimme_dir(-r,mm)
+
+    # Suggest to keep:
+    print "\nThe following dirs should be kept:"
+    for v in sorted(valids.iteritems(), key=operator.itemgetter(1)):
+      if not v[1] == None:
+        if v[0] == v[1]:
+          print "DIR:  %s  AS ITSELF" % (gimme_dir(-v[1],mm))
+  
+        else:
+          print "DIR:  %s  IN BEHALF OF:  %s" % (gimme_dir(-v[1],mm), gimme_dir(-v[0],mm))
 
 #--------------------------------------------------------------------------------#
 
