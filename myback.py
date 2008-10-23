@@ -23,13 +23,15 @@ backup_with_rsync.pl, by me.
 
 USAGE
 
+For usage, run:
+
 % myback.py -h
 
 I always use this script with cron.
 
 VERSION
 
-svn_revision = r11 (2008-10-22 11:39:48)
+svn_revision = r12 (2008-10-23 16:34:09)
 
 '''
 
@@ -63,10 +65,10 @@ parser.add_option("-d", "--destination",
                   default=None)
 
 parser.add_option("-v", "--verbose",
-                  dest="verbose",
-                  help="Whether to be verbose. Default: don\'t be.",
-		  action="store_true",
-                  default=False)
+                  dest="verbosity",
+                  help="Increase verbosity level by 1 (0 = no output, 1 = print commands being executed, 2 = print summary too, 3 = print progress too). Default: 0.",
+		  action="count",
+                  default=0)
 
 parser.add_option("-y", "--dryrun",
                   help="Dry run: do nothing, just tell what would be done. Default: real run.",
@@ -79,17 +81,17 @@ parser.add_option("-y", "--dryrun",
 
 # Make dry runs verbose:
 if o.dryrun:
-  o.verbose = True
+  o.verbosity = 2
 
 #--------------------------------------------------------------------------------#
 
 def doit(cmnd=None):
   '''
-  Print and/or execute command, depending on o.verbose and o.dryrun.
+  Print and/or execute command, depending on o.verbosity and o.dryrun.
     cmnd = command to run
   '''
 
-  if o.verbose:
+  if o.verbosity > 0:
     print cmnd
 
   if not o.dryrun:
@@ -212,7 +214,7 @@ def build_rsync(in_rsync):
   out_rsync = '%s --exclude-from=%s/global.excludes ' % (in_rsync, conf)
 
   # Verbosity:
-  if o.verbose:
+  if o.verbosity > 2:
     out_rsync += ' -vh --progress '
 
   return out_rsync
@@ -269,7 +271,7 @@ def find_deletable(m):
       rejects.append(d)
 
   # Some verbose data:
-  if o.verbose:
+  if o.verbosity > 1:
     '''
     Table with summary of dirs that exist, dirs that should be backed up,
     and crossings of the two lists.
