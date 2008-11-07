@@ -31,7 +31,7 @@ I always use this script with cron.
 
 VERSION
 
-svn_revision = r12 (2008-10-23 16:34:09)
+svn_revision = r13 (2008-11-07 17:27:50)
 
 '''
 
@@ -110,7 +110,7 @@ def read_config(options=None):
     props = {}
     for line in lines:
       aline = line.replace('\n','').split('=')
-      props[aline[0]] = aline[1]
+      props[aline[0]] = '='.join(aline[1:])
 
     machines.append(props)
 
@@ -155,42 +155,55 @@ def gimme_date(offset=0,seconds=None):
 
 #--------------------------------------------------------------------------------#
 
-def backup(machines=None,offset=0):
+def backup(machines=None,rsync=None,last_dir=None,offset=0):
   '''
   Actually make the backup.
   '''
 
-  src = machines[0]
-  dst = machines[1]
+  success = False
 
-  cmnd = '%s %s/ %s%s_%s/' % (rsync, src['FROMDIR'], dst['RSYNCAT'], dst['TODIR'],gimme_date(offset))
-  doit(cmnd)
+  if machines:
+    src = machines[0]
+    dst = machines[1]
+
+    if last_dir:
+      rsync = '%s --link-dir=%s' % (rsync, last_dir)
+
+    # Actually do it:
+    cmnd = '%s %s/ %s:%s_%s/' % (rsync, src['FROMDIR'], dst['RSYNCAT'], dst['TODIR'],gimme_date(offset))
+    doit(cmnd)
+
+    success = True
+
+  else:
+    print "Could not back up: no source/destination machine(s) specified!"
+
+  return success
 
 #--------------------------------------------------------------------------------#
 
-def cp_last(machines=None,maxt=1):
+def find_last_dir(machines=None,maxt=1):
   '''
-  Make a copy of last available dir into "current".
+  Find last available dir into which rsync will hardlink unmodified files.
     maxd = max number of days we want to move back.
   '''
  
   gd0 = gimme_date(0)
   mm  = machines[1]
-  mms = mm['SSHCOMM']
   mmt = mm['TODIR']
+  mat = mm['RSYNCAT']
 
-  cmnd = '%s "file %s_%s && echo OK"' % (mms, mmt, gd0)
-  test = S.cli(cmnd,True)
+  link_dir = None
 
-  if test and test[-1] != 'OK\n':
-    for i in range(1,maxt+1):
-      gdi = gimme_date(-i)
-      cmnd = '%s "file %s_%s && echo OK"' % (mms, mmt, gdi)
-      test = S.cli(cmnd,True)
-      if test[-1] == 'OK\n':
-        cmnd = '%s "cp -al %s_%s %s_%s"' % (mms, mmt, gdi, mmt, gd0)
-        doit(cmnd)
-	break
+  for i in range(1,maxt+1):
+    gdi = gimme_date(-i)
+    cmnd = 'echo "ls %s_%s" | sftp -b - %s 2> /dev/null && echo OK' % (mmt, gdi, mat)
+    test = S.cli(cmnd,True)
+    if test and test[-1] == 'OK\n':
+      link_dir = '%s_%s' % (mmt, gdi)
+      break
+
+  return link_dir
 
 #--------------------------------------------------------------------------------#
 
@@ -205,7 +218,7 @@ def write_log(file):
 
 #--------------------------------------------------------------------------------#
 
-def build_rsync(in_rsync):
+def build_rsync(in_rsync,machines=None):
   '''
   Build a more complete rsync command.
   '''
@@ -217,6 +230,13 @@ def build_rsync(in_rsync):
   if o.verbosity > 2:
     out_rsync += ' -vh --progress '
 
+  # Machine-specific options:
+  try:
+    out_rsync += ' %s ' % (machines[1]['RSYNCOPS'])
+
+  except:
+    pass
+
   return out_rsync
 
 #--------------------------------------------------------------------------------#
@@ -226,16 +246,21 @@ def find_deletable(m):
   Find old, deletable, backups.
   '''
 
-  mm = m[1]
+  mm  = m[1]
   mmt = mm['TODIR']
+  mat = mm['RSYNCAT']
 
-  cmnd = '%s "/bin/ls -d %s*"' % (mm['SSHCOMM'],mmt)
+  mmt_bare = mmt.split('/')[:-1]
+  mmt_bare = '/'.join(mmt_bare)
+
+  cmnd = 'echo "cd %s/\\nls" | sftp -b - %s | grep -v ">"' % (mmt_bare,mat)
   dirlist = S.cli(cmnd,True)
 
   rejects_by_name = []
 
   dates = []
   for dn in dirlist:
+    dn  = dn.replace(' *\n','')
     dn  = dn.replace('\n','')
     d2d = dir2date(dn)
 
@@ -298,25 +323,29 @@ def find_deletable(m):
     print ''
 
     # Suggest to delete:
-    print "The following dirs should be deleted:"
+    if rejects or rejects_by_name:
+      print "The following dirs should be deleted:"
   
-    print "*) Not named by date:"
-    for dn in rejects_by_name:
-      print dn
+      if rejects_by_name:
+        print "*) Not named by date:"
+	for dn in rejects_by_name:
+	  print dn
 
-    print "*) Its date is not needed:"
-    for r in rejects:
-      print gimme_dir(-r,mm)
+      if rejects:
+        print "*) Its date is not needed:"
+        for r in rejects:
+          print gimme_dir(-r,mm)
 
     # Suggest to keep:
-    print "\nThe following dirs should be kept:"
-    for v in sorted(valids.iteritems(), key=operator.itemgetter(1)):
-      if not v[1] == None:
-        if v[0] == v[1]:
-          print "DIR:  %s  AS ITSELF" % (gimme_dir(-v[1],mm))
+    if valids:
+      print "\nThe following dirs should be kept:"
+      for v in sorted(valids.iteritems(), key=operator.itemgetter(1)):
+        if not v[1] == None:
+          if v[0] == v[1]:
+            print "DIR:  %s  AS ITSELF" % (gimme_dir(-v[1],mm))
   
-        else:
-          print "DIR:  %s  IN BEHALF OF:  %s" % (gimme_dir(-v[1],mm), gimme_dir(-v[0],mm))
+          else:
+            print "DIR:  %s  IN BEHALF OF:  %s" % (gimme_dir(-v[1],mm), gimme_dir(-v[0],mm))
 
 #--------------------------------------------------------------------------------#
 
@@ -350,33 +379,52 @@ def dir2date(dirname=None):
 if __name__ == '__main__':
 
   # General variables:
-  rsync    = 'rsync -a -e ssh --delete --delete-excluded ' # base rsync command to use
-  user     = os.environ['LOGNAME']                         # username of script user
-  home     = os.environ['HOME']                            # your home dir
-  conf     = '%s/.myback' % (home)                         # configuration dir
-  logfile  = '%s/myback.log' % (conf)                      # log file
-  mxback   = 10                                            # max number of days to go back searching for latest dir
+  rsync    = 'rsync -a --delete --delete-excluded ' # base rsync command to use
+  user     = os.environ['LOGNAME']                  # username of script user
+  home     = os.environ['HOME']                     # your home dir
+  conf     = '%s/.myback' % (home)                  # configuration dir
+  logfile  = '%s/myback.log' % (conf)               # log file
+  mxback   = 10                                     # max number of days to go back searching for latest dir
+
+  # Read configurations:
+  if o.verbosity > 0:
+    print "Reading config files..."
+  m = read_config(o)
 
   # Build rsync command:
-  rsync = build_rsync(rsync)
+  if o.verbosity > 0:
+    print "Building rsync command..."
+  rsync = build_rsync(rsync,m)
 
   # Hook to SSH agent:
+  if o.verbosity > 0:
+    print "Hooking to SSH agent..."
   P.ssh_hook(user)
 
   # Make checks:
+  if o.verbosity > 0:
+    print "Performing various checks..."
   make_checks(o)
 
-  # Read configurations:
-  m = read_config(o)
-
-  # Copy last available (whithin specified limit) to "current":
-  cp_last(m,mxback)
+  # Find last available dir (whithin specified limit) to hardlink to when unaltered:
+  if o.verbosity > 0:
+    print "Determining last 'linkable' dir..."
+  last_dir = find_last_dir(m,mxback)
+  if o.verbosity > 0:
+    print "Determined to be '%s'" % (last_dir)
 
   # Determine if any to delete:
+  if o.verbosity > 0:
+    print "Finding out deletable dirs..."
   find_deletable(m)
 
   # Make backup:
-  backup(m,0)
+  if o.verbosity > 0:
+    print "Doing actual backup..."
+  success = backup(m,rsync,last_dir,0)
 
   # At last, log:
-  write_log(logfile)
+  if not o.dryrun and success:
+    if o.verbosity > 0:
+      print "Logging info and exiting."
+    write_log(logfile)
