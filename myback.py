@@ -31,7 +31,7 @@ I always use this script with cron.
 
 VERSION
 
-svn_revision = r13 (2008-11-07 17:27:50)
+svn_revision = r15 (2008-11-07 19:36:07)
 
 '''
 
@@ -66,7 +66,7 @@ parser.add_option("-d", "--destination",
 
 parser.add_option("-v", "--verbose",
                   dest="verbosity",
-                  help="Increase verbosity level by 1 (0 = no output, 1 = print commands being executed, 2 = print summary too, 3 = print progress too). Default: 0.",
+                  help="Increase verbosity level by 1 (0 = no output, 1 = print commands being executed, 2 = print summary too, 3 = print transferred files too, 4 = print progress meter too). Default: 0.",
 		  action="count",
                   default=0)
 
@@ -228,7 +228,10 @@ def build_rsync(in_rsync,machines=None):
 
   # Verbosity:
   if o.verbosity > 2:
-    out_rsync += ' -vh --progress '
+    out_rsync += ' -vh '
+
+    if o.verbosity > 3:
+      out_rsync += ' --progress '
 
   # Machine-specific options:
   try:
