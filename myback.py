@@ -31,7 +31,7 @@ I always use this script with cron.
 
 VERSION
 
-svn_revision = r15 (2008-11-07 19:36:07)
+svn_revision = r16 (2008-11-11 13:11:55)
 
 '''
 
@@ -167,7 +167,7 @@ def backup(machines=None,rsync=None,last_dir=None,offset=0):
     dst = machines[1]
 
     if last_dir:
-      rsync = '%s --link-dir=%s' % (rsync, last_dir)
+      rsync = '%s --link-dest=%s' % (rsync, last_dir)
 
     # Actually do it:
     cmnd = '%s %s/ %s:%s_%s/' % (rsync, src['FROMDIR'], dst['RSYNCAT'], dst['TODIR'],gimme_date(offset))
