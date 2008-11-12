@@ -31,7 +31,7 @@ I always use this script with cron.
 
 VERSION
 
-svn_revision = r17 (2008-11-12 19:01:30)
+svn_revision = r18 (2008-11-12 19:21:31)
 
 '''
 
@@ -259,6 +259,12 @@ def find_deletable(m):
   cmnd = 'echo "cd %s/\\nls" | sftp -b - %s | grep -v ">"' % (mmt_bare,mat)
   dirlist = S.cli(cmnd,True)
 
+  dirlist = []
+  for element in S.cli(cmnd,True):
+    element = re.sub(' *\n','',element)
+    elements = element.split()
+    dirlist.extend(elements)
+
   rejects_by_name = []
 
   dates = []
@@ -298,57 +304,55 @@ def find_deletable(m):
     if not accepted:
       rejects.append(d)
 
-  # Some verbose data:
-  if o.verbosity > 1:
-    '''
-    Table with summary of dirs that exist, dirs that should be backed up,
-    and crossings of the two lists.
-    '''
+  '''
+  Table with summary of dirs that exist, dirs that should be backed up,
+  and crossings of the two lists.
+  '''
 
-    print "Day  Exists?  Save? Choice"
-    print "---  -------  ----- ------"
+  print "Day  Exists?  Save? Choice"
+  print "---  -------  ----- ------"
 
-    for i in range(maxd+1):
-      print "%3i " % (i),
+  for i in range(maxd+1):
+    print "%3i " % (i),
 
-      if exists.has_key(i ): print " exists ",
-      else:                  print "   --   ",
+    if exists.has_key(i ): print " exists ",
+    else:                  print "   --   ",
 
-      if valids.has_key(i):
-        print " save " ,
+    if valids.has_key(i):
+      print " save " ,
 
-        if valids[i] != None: print "  %3i " % (valids[i]),
-        else:                 print "    - ",
+      if valids[i] != None: print "  %3i " % (valids[i]),
+      else:                 print "    - ",
 
-      else: print "  --  ",
+    else: print "  --  ",
     
-      print ''
     print ''
+  print ''
 
-    # Suggest to delete:
-    if rejects or rejects_by_name:
-      print "The following dirs should be deleted:"
+  # Suggest to delete:
+  if rejects or rejects_by_name:
+    print "The following dirs should be deleted:"
   
-      if rejects_by_name:
-        print "*) Not named by date:"
-	for dn in rejects_by_name:
-	  print dn
+    if rejects_by_name:
+      print "*) Not named by date:"
+      for dn in rejects_by_name:
+        print dn
 
-      if rejects:
-        print "*) Its date is not needed:"
-        for r in rejects:
-          print gimme_dir(-r,mm)
+    if rejects:
+      print "*) Its date is not needed:"
+      for r in rejects:
+        print gimme_dir(-r,mm)
 
-    # Suggest to keep:
-    if valids:
-      print "\nThe following dirs should be kept:"
-      for v in sorted(valids.iteritems(), key=operator.itemgetter(1)):
-        if not v[1] == None:
-          if v[0] == v[1]:
-            print "DIR:  %s  AS ITSELF" % (gimme_dir(-v[1],mm))
+  # Suggest to keep:
+  if valids:
+    print "\nThe following dirs should be kept:"
+    for v in sorted(valids.iteritems(), key=operator.itemgetter(1)):
+      if not v[1] == None:
+        if v[0] == v[1]:
+          print "DIR:  %s  AS ITSELF" % (gimme_dir(-v[1],mm))
   
-          else:
-            print "DIR:  %s  IN BEHALF OF:  %s" % (gimme_dir(-v[1],mm), gimme_dir(-v[0],mm))
+        else:
+          print "DIR:  %s  IN BEHALF OF:  %s" % (gimme_dir(-v[1],mm), gimme_dir(-v[0],mm))
 
 #--------------------------------------------------------------------------------#
 
@@ -391,35 +395,44 @@ if __name__ == '__main__':
 
   # Read configurations:
   if o.verbosity > 0:
-    print "Reading config files..."
+    print "Reading config files...",
+
   m = read_config(o)
 
+  if o.verbosity > 0: print " OK"
+
   # Build rsync command:
-  if o.verbosity > 0:
-    print "Building rsync command..."
+  if o.verbosity > 0: print "Building rsync command...",
+
   rsync = build_rsync(rsync,m)
 
+  if o.verbosity > 0: print " OK"
+
   # Hook to SSH agent:
-  if o.verbosity > 0:
-    print "Hooking to SSH agent..."
+  if o.verbosity > 0: print "Hooking to SSH agent...",
+
   P.ssh_hook(user)
 
+  if o.verbosity > 0: print " OK"
+
   # Make checks:
-  if o.verbosity > 0:
-    print "Performing various checks..."
+  if o.verbosity > 0: print "Performing various checks...",
+
   make_checks(o)
 
+  if o.verbosity > 0: print " OK"
+
   # Find last available dir (whithin specified limit) to hardlink to when unaltered:
-  if o.verbosity > 0:
-    print "Determining last 'linkable' dir..."
+  if o.verbosity > 0: print "Determining last 'linkable' dir...",
+
   last_dir = find_last_dir(m,mxback)
-  if o.verbosity > 0:
-    print "Determined to be '%s'" % (last_dir)
+
+  if o.verbosity > 0: print " -> '%s'" % (last_dir)
 
   # Determine if any to delete:
-  if o.verbosity > 0:
+  if o.verbosity > 1:
     print "Finding out deletable dirs..."
-  find_deletable(m)
+    find_deletable(m)
 
   # Make backup:
   if o.verbosity > 0:
@@ -429,7 +442,6 @@ if __name__ == '__main__':
   # At last, log:
   if not o.dryrun and success:
 
-    if o.verbosity > 0:
-      print "Logging info and exiting."
+    if o.verbosity > 0: print "Logging info and exiting."
 
     write_log(logfile)
