@@ -31,7 +31,7 @@ I always use this script with cron.
 
 VERSION
 
-svn_revision = r16 (2008-11-11 13:11:55)
+svn_revision = r17 (2008-11-12 19:01:30)
 
 '''
 
@@ -386,7 +386,7 @@ if __name__ == '__main__':
   user     = os.environ['LOGNAME']                  # username of script user
   home     = os.environ['HOME']                     # your home dir
   conf     = '%s/.myback' % (home)                  # configuration dir
-  logfile  = '%s/myback.log' % (conf)               # log file
+  logfile  = '%s/.LOGs/myback.log' % (home)         # log file
   mxback   = 10                                     # max number of days to go back searching for latest dir
 
   # Read configurations:
@@ -428,6 +428,8 @@ if __name__ == '__main__':
 
   # At last, log:
   if not o.dryrun and success:
+
     if o.verbosity > 0:
       print "Logging info and exiting."
+
     write_log(logfile)
