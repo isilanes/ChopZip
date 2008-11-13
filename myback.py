@@ -31,7 +31,7 @@ I always use this script with cron.
 
 VERSION
 
-svn_revision = r18 (2008-11-12 19:21:31)
+svn_revision = r19 (2008-11-13 19:44:09)
 
 '''
 
@@ -72,6 +72,16 @@ parser.add_option("-v", "--verbose",
 
 parser.add_option("-y", "--dryrun",
                   help="Dry run: do nothing, just tell what would be done. Default: real run.",
+		  action="store_true",
+                  default=False)
+
+parser.add_option("--suspend",
+                  help="Request that the system be suspended after performing the backup. This is achieved by placing a file where a root cron job will read it and suspend if found. Default: Do not suspend.",
+		  action="store_true",
+                  default=False)
+
+parser.add_option("--hibernate",
+                  help="Request that the system be hibernated after performing the backup. This is achieved by placing a file where a root cron job will read it and hibernate if found. Default: Do not hibernate.",
 		  action="store_true",
                   default=False)
 
@@ -445,3 +455,14 @@ if __name__ == '__main__':
     if o.verbosity > 0: print "Logging info and exiting."
 
     write_log(logfile)
+
+    # If requested, place a file in a special location (~/.LOGs/). A root cron job should be running
+    # (in principle /root/bin/shutdown_if_requested.py), that will suspend/hibernate the PC if it
+    # finds the aforementioned file.
+    if o.suspend:
+      suspend_file = '%s/.LOGs/please_suspend_me' % (home)
+      FM.w2file('myback.py asks for suspend...',suspend_file)
+
+    if o.hibernate:
+      hibernate_file = '%s/.LOGs/please_hibernate_me' % (home)
+      FM.w2file('myback.py asks for hibernate...',hibernate_file)
