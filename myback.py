@@ -31,7 +31,7 @@ I always use this script with cron.
 
 VERSION
 
-svn_revision = r19 (2008-11-13 19:44:09)
+svn_revision = r20 (2008-11-18 12:02:44)
 
 '''
 
@@ -461,8 +461,8 @@ if __name__ == '__main__':
     # finds the aforementioned file.
     if o.suspend:
       suspend_file = '%s/.LOGs/please_suspend_me' % (home)
-      FM.w2file('myback.py asks for suspend...',suspend_file)
+      FM.w2file(suspend_file,'myback.py asks for suspend...\n')
 
     if o.hibernate:
       hibernate_file = '%s/.LOGs/please_hibernate_me' % (home)
-      FM.w2file('myback.py asks for hibernate...',hibernate_file)
+      FM.w2file(hibernate_file,'myback.py asks for hibernate...\n')
