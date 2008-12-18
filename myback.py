@@ -31,7 +31,7 @@ I always use this script with cron.
 
 VERSION
 
-svn_revision = r20 (2008-11-18 12:02:44)
+svn_revision = r21 (2008-12-18 19:10:08)
 
 '''
 
@@ -48,6 +48,7 @@ sys.path.append(os.environ['HOME']+'/WCs/PythonModules')
 import Private as P
 import System as S
 import FileManipulation as FM
+import Time as T
 
 #--------------------------------------------------------------------------------#
 
@@ -144,27 +145,6 @@ def make_checks(o):
 
 #--------------------------------------------------------------------------------#
 
-def gimme_date(offset=0,seconds=None):
-  '''
-  Gives a date with a given offset in days, with respect to today.
-    offset = if 0, then it's today. If 1, it is tomorrow. If -2 is two days ago.
-             You get the picture.
-  '''
-  
-  if seconds:
-    sec   = datetime.datetime.today()
-    date  = sec.strftime('%Y.%m.%d %H:%M:%S')
-
-  else:
-    day   = datetime.date.today()
-    delta = datetime.timedelta(days=offset)
-    day   = day + delta
-    date  = day.strftime('%Y.%m.%d')
-
-  return date
-
-#--------------------------------------------------------------------------------#
-
 def backup(machines=None,rsync=None,last_dir=None,offset=0):
   '''
   Actually make the backup.
@@ -180,7 +160,7 @@ def backup(machines=None,rsync=None,last_dir=None,offset=0):
       rsync = '%s --link-dest=%s' % (rsync, last_dir)
 
     # Actually do it:
-    cmnd = '%s %s/ %s:%s_%s/' % (rsync, src['FROMDIR'], dst['RSYNCAT'], dst['TODIR'],gimme_date(offset))
+    cmnd = '%s %s/ %s:%s_%s/' % (rsync, src['FROMDIR'], dst['RSYNCAT'], dst['TODIR'],T.gimme_date(offset))
     doit(cmnd)
 
     success = True
@@ -198,7 +178,7 @@ def find_last_dir(machines=None,maxt=1):
     maxd = max number of days we want to move back.
   '''
  
-  gd0 = gimme_date(0)
+  gd0 = T.gimme_date(0)
   mm  = machines[1]
   mmt = mm['TODIR']
   mat = mm['RSYNCAT']
@@ -206,7 +186,7 @@ def find_last_dir(machines=None,maxt=1):
   link_dir = None
 
   for i in range(1,maxt+1):
-    gdi = gimme_date(-i)
+    gdi = T.gimme_date(-i)
     cmnd = 'echo "ls %s_%s" | sftp -b - %s 2> /dev/null && echo OK' % (mmt, gdi, mat)
     test = S.cli(cmnd,True)
     if test and test[-1] == 'OK\n':
@@ -222,7 +202,7 @@ def write_log(file):
   Save log entry.
   '''
 
-  logstring = 'Backed up FROM: %s TO: %s AT: %s\n' % (o.source, o.destination, gimme_date(0,True))
+  logstring = 'Backed up FROM: %s TO: %s AT: %s\n' % (o.source, o.destination, T.gimme_date(0,True))
 
   FM.w2file(logfile,logstring,'a')
 
@@ -362,7 +342,7 @@ def find_deletable(m):
           print "DIR:  %s  AS ITSELF" % (gimme_dir(-v[1],mm))
   
         else:
-          print "DIR:  %s  IN BEHALF OF:  %s" % (gimme_dir(-v[1],mm), gimme_dir(-v[0],mm))
+          print "DIR:  %s  IN BEHALF OF:  %s" % (T.gimme_dir(-v[1],mm), gimme_dir(-v[0],mm))
 
 #--------------------------------------------------------------------------------#
 
@@ -371,7 +351,7 @@ def gimme_dir(i=0,m=None):
   Given a day offset and machine conf, return backup dir.
   '''
 
-  return "%s_%s" % (m['TODIR'],gimme_date(i))
+  return "%s_%s" % (m['TODIR'],T.gimme_date(i))
 
 #--------------------------------------------------------------------------------#
 
