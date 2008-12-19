@@ -31,7 +31,7 @@ I always use this script with cron.
 
 VERSION
 
-svn_revision = r21 (2008-12-18 19:10:08)
+svn_revision = r22 (2008-12-19 10:40:05)
 
 '''
 
@@ -342,7 +342,7 @@ def find_deletable(m):
           print "DIR:  %s  AS ITSELF" % (gimme_dir(-v[1],mm))
   
         else:
-          print "DIR:  %s  IN BEHALF OF:  %s" % (T.gimme_dir(-v[1],mm), gimme_dir(-v[0],mm))
+          print "DIR:  %s  IN BEHALF OF:  %s" % (gimme_dir(-v[1],mm), gimme_dir(-v[0],mm))
 
 #--------------------------------------------------------------------------------#
 
