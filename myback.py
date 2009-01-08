@@ -31,7 +31,7 @@ I always use this script with cron.
 
 VERSION
 
-svn_revision = r22 (2008-12-19 10:40:05)
+svn_revision = r24 (2009-01-08 16:14:11)
 
 '''
 
@@ -383,6 +383,9 @@ if __name__ == '__main__':
   logfile  = '%s/.LOGs/myback.log' % (home)         # log file
   mxback   = 10                                     # max number of days to go back searching for latest dir
 
+  # Ask not to suspend/hibernate while running:
+  S.keep_me_up('start')
+
   # Read configurations:
   if o.verbosity > 0:
     print "Reading config files...",
@@ -446,3 +449,6 @@ if __name__ == '__main__':
     if o.hibernate:
       hibernate_file = '%s/.LOGs/please_hibernate_me' % (home)
       FM.w2file(hibernate_file,'myback.py asks for hibernate...\n')
+
+  # Lastly, let the computer suspend/hibernate if it wants to:
+  S.keep_me_up('stop')
