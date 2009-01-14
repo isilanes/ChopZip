@@ -31,7 +31,7 @@ I always use this script with cron.
 
 VERSION
 
-svn_revision = r24 (2009-01-08 16:14:11)
+svn_revision = r25 (2009-01-14 13:47:56)
 
 '''
 
@@ -188,7 +188,7 @@ def find_last_dir(machines=None,maxt=1):
   for i in range(1,maxt+1):
     gdi = T.gimme_date(-i)
     cmnd = 'echo "ls %s_%s" | sftp -b - %s 2> /dev/null && echo OK' % (mmt, gdi, mat)
-    test = S.cli(cmnd,True)
+    test = S.cli(cmnd,1).split('\n')
     if test and test[-1] == 'OK\n':
       link_dir = '%s_%s' % (mmt, gdi)
       break
@@ -247,10 +247,10 @@ def find_deletable(m):
   mmt_bare = '/'.join(mmt_bare)
 
   cmnd = 'echo "cd %s/\\nls" | sftp -b - %s | grep -v ">"' % (mmt_bare,mat)
-  dirlist = S.cli(cmnd,True)
+  dirlist = S.cli(cmnd,1).split('\n')
 
   dirlist = []
-  for element in S.cli(cmnd,True):
+  for element in S.cli(cmnd,1).split('\n'):
     element = re.sub(' *\n','',element)
     elements = element.split()
     dirlist.extend(elements)
