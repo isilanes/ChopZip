@@ -2,10 +2,12 @@
 
 # Variables
 DUPLICITY=/usr/bin/duplicity
-SOURCE=/home/isilanes/Downloads/kk/
+SOURCE=/home/isilanes/
 DEST=ssh://b395676@backup.dreamhost.com//home/b395676/duplicity/flanders.home/
-OPTS="--full-if-older-than 1M --volsize 25 -v0 --exclude-filelist /home/isilanes/.myback/global.excludes"
-#OPTS="$OPTS --no-print-statistics"
+FULLAGE=1M
+VOLSIZE=100
+VERBOSITY=4
+EXCLUDES=/home/isilanes/.myback/dupliback.excludes
 
 # PW for encryption:
 export PASSPHRASE='e/%$13oqr31i5r652adlhqgb'
@@ -13,12 +15,13 @@ export PASSPHRASE='e/%$13oqr31i5r652adlhqgb'
 # PW for SSH:
 export SSH_AUTH_SOCK=`find /tmp/ssh* -name 'agent.*' -user isilanes`
 
-# Ask not to suspend:
+# Ask to not suspend:
 touch /home/isilanes/.LOGs/keep_me_up.dupliback
 
 # Execute
-echo $DUPLICITY $OPTS $SOURCE $DEST
-$DUPLICITY $OPTS $SOURCE $DEST
+CMND="$DUPLICITY --full-if-older-than $FULLAGE --volsize $VOLSIZE --exclude-globbing-filelist $EXCLUDES -v$VERBOSITY $SOURCE $DEST"
+echo $CMND
+$CMND
 
 # Let it suspend:
 rm -f /home/isilanes/.LOGs/keep_me_up.dupliback
