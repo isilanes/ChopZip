@@ -27,4 +27,4 @@ $CMND
 rm -f /home/isilanes/.LOGs/keep_me_up.dupliback
 
 # Even ASK for it:
-touch /home/isilanes/.LOGs/please_suspend_me
+#touch /home/isilanes/.LOGs/please_suspend_me
