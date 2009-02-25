@@ -29,7 +29,7 @@ For usage, run:
 
 VERSION
 
-svn_revision = r1
+svn_revision = r30 (2009-02-25 14:06:13)
 
 '''
 
@@ -58,7 +58,7 @@ parser.add_option("-d", "--date",
 
 parser.add_option("-v", "--verbose",
                   dest="verbosity",
-                  help="Increase verbosity level by 1 (0 = no output, 1 = print commands being executed, 2 = print summary too, 3 = print transferred files too, 4 = print progress meter too). Default: 0.",
+                  help="Increase verbosity level by 1 (0 = no output, 1 = print commands being executed). Default: 0.",
 		  action="count",
                   default=0)
 
@@ -98,7 +98,10 @@ if not o.date:
 ddir    = '/home/b395676/backups/flanders.home_%s' % (o.date)
 machine = 'b395676@backup.dreamhost.com'
 remote  = '%s:%s' % (machine,ddir)
-rsync   = 'rsync --delete -rv --protocol=29'
+rsync   = 'rsync --delete -r --protocol=29'
+
+if o.verbosity > 0:
+  rsync += ' -vh'
 
 # Make dummy dir:
 dummydir = 'dummy'
