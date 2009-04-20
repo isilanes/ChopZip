@@ -2,12 +2,13 @@
 
 # Variables
 DUPLICITY=/usr/bin/duplicity
-SOURCE=/home/isilanes/
+SOURCE=$HOME/
 DEST=ssh://b395676@backup.dreamhost.com//home/b395676/duplicity/flanders.home/
 FULLAGE=1M
 VOLSIZE=100
 VERBOSITY=4
-EXCLUDES=/home/isilanes/.myback/dupliback.excludes
+EXCLUDES=$HOME/.myback/dupliback.excludes
+export TMPDIR=$HOME/.myback/tmp
 
 # PW for encryption:
 export PASSPHRASE='e/%$13oqr31i5r652adlhqgb'
