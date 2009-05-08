@@ -14,7 +14,8 @@ export TMPDIR=$HOME/.myback/tmp
 export PASSPHRASE='e/%$13oqr31i5r652adlhqgb'
 
 # PW for SSH:
-export SSH_AUTH_SOCK=`find /tmp/ssh* -name 'agent.*' -user isilanes`
+#export SSH_AUTH_SOCK=`find /tmp/ssh* -name 'agent.*' -user isilanes`
+export SSH_AUTH_SOCK=`find /tmp/keyring-* -name 'socket.ssh' -user isilanes`
 
 # Ask to not suspend:
 touch /home/isilanes/.LOGs/keep_me_up.dupliback
