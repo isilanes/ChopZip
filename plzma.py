@@ -49,7 +49,7 @@ if o.decompress:
       file = file.replace('.lz\n','')
       cmnd += '%s ' % (file)
 
-    out = fn.replace('.tplz','')
+    out = fn.replace('.plz','')
     
     cmnd += ' > %s' % (out)
 
@@ -88,7 +88,7 @@ else:
       v.wait()
 
     # TAR result:
-    cmnd = 'tar -cf %s.tplz ' % (fn) + '.lz '.join(chunks) + '.lz'
+    cmnd = 'tar -cf %s.plz ' % (fn) + '.lz '.join(chunks) + '.lz'
     p = sp(cmnd,shell=True)
     p.wait()
     
