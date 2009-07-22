@@ -15,13 +15,16 @@ parser = optparse.OptionParser()
 parser.add_option("-d","--decompress",
                   action  = "store_true",
                   help    = "Decompress file. Default: compress.",
-		  default = False)
+                  default = False)
+
+parser.add_option("-n","--ncpus",
+                  help    = "Decompress file. Default: compress.",
+                  default = 2)
 
 (o,args) = parser.parse_args()
 
 #--------------------------------------------------------------------------------#
 
-ncpu  = 4
 sp    = subprocess.Popen
 
 if o.decompress:
@@ -70,7 +73,7 @@ else:
 
     # Split in ncpu chunks:
     total_size = os.path.getsize(fn)
-    chunk_size = math.trunc(total_size/ncpu+1)
+    chunk_size = math.trunc(total_size/int(o.ncpus)+1)
     cmnd       = 'split -b %i -d %s %s.' % (chunk_size,fn,fn)
     p          = sp(cmnd,shell=True)
     p.wait()
