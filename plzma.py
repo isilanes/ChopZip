@@ -21,6 +21,10 @@ parser.add_option("-n","--ncpus",
                   help    = "Number of CPUs to use. Default: 2.",
                   default = 2)
 
+parser.add_option("-l","--level",
+                  help    = "Compression level (1 min to 9 max). Default: 3.",
+                  default = 3)
+
 (o,args) = parser.parse_args()
 
 #--------------------------------------------------------------------------------#
@@ -39,17 +43,20 @@ if o.decompress:
     # Decompress:
     files = p.stdout.readlines()
 
+    pd = []
     for file in files:
 
       file = file.replace('\n','')
-      cmnd = 'unlzma -S .lz %s' % (file)
-      p = sp(cmnd,shell=True)
+      cmnd = 'lzma -d %s' % (file)
+      pd.append(sp(cmnd,shell=True))
+
+    for p in pd:
       p.wait()
 
     # Join parts:
     cmnd = 'cat '
     for file in files:
-      file = file.replace('.lz\n','')
+      file = file.replace('.lzma\n','')
       cmnd += '%s ' % (file)
 
     out = fn.replace('.plz','')
@@ -61,7 +68,7 @@ if o.decompress:
 
     # Remove tmp:
     for file in files:
-      file = file.replace('.lz\n','')
+      file = file.replace('.lzma\n','')
       os.unlink(file)
 
     # Remove TAR:
@@ -80,24 +87,24 @@ else:
 
     chunks = glob.glob('%s.[0-9]*' % (fn))
 
-    pchunk = {}
+    pd = []
     for chunk in chunks:
   
-      cmnd = 'lzma -S .lz -3 "%s"' % (chunk)
-      pchunk[chunk] = sp(cmnd,shell=True)
+      cmnd = 'lzma -%i "%s"' % (int(o.level),chunk)
+      pd.append(sp(cmnd,shell=True))
 
     # Wait for all processes to finish:
-    for k,v in pchunk.items():
-      v.wait()
+    for p in pd:
+      p.wait()
 
     # TAR result:
-    cmnd = 'tar -cf %s.plz ' % (fn) + '.lz '.join(chunks) + '.lz'
-    p = sp(cmnd,shell=True)
+    cmnd = 'tar -cf %s.plz ' % (fn) + '.lzma '.join(chunks) + '.lzma'
+    p    = sp(cmnd,shell=True)
     p.wait()
     
     # remove tmp:
     for chunk in chunks:
-      os.unlink(chunk+'.lz')
+      os.unlink(chunk+'.lzma')
 
     # Remove uncompressed:
     os.unlink(fn)
