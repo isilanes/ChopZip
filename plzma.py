@@ -18,7 +18,7 @@ parser.add_option("-d","--decompress",
                   default = False)
 
 parser.add_option("-n","--ncpus",
-                  help    = "Decompress file. Default: compress.",
+                  help    = "Number of CPUs to use. Default: 2.",
                   default = 2)
 
 (o,args) = parser.parse_args()
