@@ -1,13 +1,10 @@
 #!/bin/bash
 
 # Variables
+REST=$1
 DUPLICITY=/usr/bin/duplicity
-SOURCE=$HOME/
 DEST=ssh://b395676@backup.dreamhost.com//home/b395676/duplicity/flanders.home/
-FULLAGE=50D
-VOLSIZE=50
-VERBOSITY=4
-EXCLUDES=$HOME/.myback/dupliback.excludes
+VERBOSITY=5
 export TMPDIR=$HOME/.myback/tmp
 
 # PW for encryption:
@@ -20,9 +17,9 @@ export SSH_AUTH_SOCK=`find /tmp/keyring-* -name 'socket.ssh' -user isilanes`
 touch /home/isilanes/.LOGs/keep_me_up.dupliback
 
 # Execute
-CMND="$DUPLICITY --full-if-older-than $FULLAGE --volsize $VOLSIZE --exclude-globbing-filelist $EXCLUDES -v$VERBOSITY $SOURCE $DEST"
+CMND="$DUPLICITY --file-to-restore $REST -v$VERBOSITY $DEST ./"
 echo $CMND
-$CMND
+#$CMND
 
 # Let it suspend:
 rm -f /home/isilanes/.LOGs/keep_me_up.dupliback
