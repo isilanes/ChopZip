@@ -18,7 +18,7 @@ for more details (http://www.gnu.org/licenses/gpl.txt).
 
 DESCRIPTION
 
-(De)compresses files with LZMA in parallel.
+(De)compresses files with LZMA/gzip/xz/lzip in parallel.
 
 USAGE
 
@@ -74,7 +74,8 @@ def mysplit(fn,nchunks=2):
   cmnd       = 'split --verbose -b %i -a 3 -d %s %s.chunk.' % (chunk_size,fn,fn)
   p          = sp(cmnd,shell=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
   p.wait()
-  for line in p.stderr.readlines():
+
+  for line in p.stdout.readlines():
     line = line.replace("'",'')
     line = line.replace("`",'')
     aline = line.split()[-1]
@@ -106,7 +107,7 @@ def ends(string,substring):
 
 #--------------------------------------------------------------------------------#
 
-if not o.method in ['xz','lzma','gzip']:
+if not o.method in ['xz','lzma','gzip','lzip']:
 
   msg = 'Unknown compression method "{0}" requested'.format(o.method)
   sys.exit(msg)
@@ -119,60 +120,66 @@ if o.decompress:
 
     chkfile(fn)
 
-    # Untar:
-    cmnd = 'tar -xvf %s' % (fn)
-    p = sp(cmnd,shell=True,stdout=subprocess.PIPE)
-    p.wait()
-
-    # Decompress:
-    files = p.stdout.readlines()
-
-    pd = []
-    for file in files:
-
-      file = file.replace('\n','')
-
-      if ends(file,'.lzma'):
-        cmnd = 'lzma -d %s' % (file)
-        pd.append(sp(cmnd,shell=True))
-
-      elif ends(file,'.gz'):
-        cmnd = 'gzip -d %s' % (file)
-        pd.append(sp(cmnd,shell=True))
-
-      elif ends(file,'.xz'):
-        cmnd = 'xz -d %s' % (file)
-        pd.append(sp(cmnd,shell=True))
-
-      else:
-        print 'Don\'t know how "{0}" was compressed'.format(file)
-
-    for p in pd:
+    if o.method == 'lzip':
+      cmnd = 'lzip -d {0}'.format(fn)
+      p = sp(cmnd,shell=True,stdout=subprocess.PIPE)
       p.wait()
 
-    # Join parts:
-    cmnd = 'cat '
-    for file in files:
-      afile = file.split('.')
-      file = '.'.join(afile[:-1])
-      cmnd += '%s ' % (file)
+    else:
+      # Untar:
+      cmnd = 'tar -xvf %s' % (fn)
+      p = sp(cmnd,shell=True,stdout=subprocess.PIPE)
+      p.wait()
 
-    aout = fn.split('.')
-    out  = '.'.join(aout[:-1])
+      # Decompress:
+      files = p.stdout.readlines()
+
+      pd = []
+      for file in files:
+
+        file = file.replace('\n','')
+
+        if ends(file,'.lzma'):
+          cmnd = 'lzma -d %s' % (file)
+          pd.append(sp(cmnd,shell=True))
+
+        elif ends(file,'.gz'):
+          cmnd = 'gzip -d %s' % (file)
+          pd.append(sp(cmnd,shell=True))
+
+        elif ends(file,'.xz'):
+          cmnd = 'xz -d %s' % (file)
+          pd.append(sp(cmnd,shell=True))
+
+        else:
+          print 'Don\'t know how "{0}" was compressed'.format(file)
+
+      for p in pd:
+        p.wait()
+
+      # Join parts:
+      cmnd = 'cat '
+      for file in files:
+        afile = file.split('.')
+        file = '.'.join(afile[:-1])
+        cmnd += '%s ' % (file)
+
+      aout = fn.split('.')
+      out  = '.'.join(aout[:-1])
     
-    cmnd += ' > %s' % (out)
+      cmnd += ' > %s' % (out)
 
-    p = sp(cmnd,shell=True)
-    p.wait()
+      p = sp(cmnd,shell=True)
+      p.wait()
 
-    # Remove tmp:
-    for file in files:
-      afile = file.split('.')
-      file  = '.'.join(afile[:-1])
-      os.unlink(file)
+      # Remove tmp:
+      for file in files:
+        afile = file.split('.')
+        file  = '.'.join(afile[:-1])
+        os.unlink(file)
 
-    # Remove TAR:
-    os.unlink(fn)
+      # Remove TAR:
+      os.unlink(fn)
 
 else:
 
@@ -204,19 +211,37 @@ else:
         cmnd  = 'gzip -%i "%s"' % (int(o.level),chunk)
         pd.append(sp(cmnd,shell=True))
 
+      elif o.method == 'lzip':
+        ext  = 'lz'
+        cmnd = 'lzip -%i "%s"' % (int(o.level),chunk)
+        pd.append(sp(cmnd,shell=True))
+
     # Wait for all processes to finish:
     for p in pd:
       p.wait()
 
-    # TAR result:
-    pext = '.'+ext+' '
-    cmnd = 'tar -cf %s.%s ' % (fn,text) + pext.join(chunks) + pext
-    p    = sp(cmnd,shell=True)
-    p.wait()
+    if o.method == 'lzip':
+      cmnd = 'cat '
+
+      for chunk in chunks:
+        cmnd += ' {0}.{1} '.format(chunk,ext)
+
+      cmnd += ' > {0}.lz'.format(fn)
+      p     = sp(cmnd,shell=True)
+      p.wait()
+
+    else:
+
+      # TAR result:
+      pext = '.'+ext+' '
+      cmnd = 'tar -cf %s.%s ' % (fn,text) + pext.join(chunks) + pext
+      p    = sp(cmnd,shell=True)
+      p.wait()
     
+    # Remove uncompressed:
+    os.unlink(fn)
+
     # remove tmp:
     for chunk in chunks:
       os.unlink(chunk+'.'+ext)
 
-    # Remove uncompressed:
-    os.unlink(fn)
