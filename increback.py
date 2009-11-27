@@ -2,7 +2,7 @@
 # coding=utf-8
 
 '''
-myback
+increback
 (c) 2008-2009, Iñaki Silanes
 
 LICENSE
@@ -19,20 +19,15 @@ for more details (http://www.gnu.org/licenses/gpl.txt).
 DESCRIPTION
 
 It makes incremental backups with rsync. It is a Python port of
-backup_with_rsync.pl, by me.
+backup_with_rsync.pl (also by me).
 
 USAGE
 
 For usage, run:
 
-% myback.py -h
+% increback.py -h
 
-I always use this script with cron.
-
-VERSION
-
-svn_revision = r25 (2009-01-14 13:47:56)
-
+I use this script interactively.
 '''
 
 import datetime
@@ -43,7 +38,7 @@ import re
 import sys
 import operator
 
-sys.path.append(os.environ['HOME']+'/WCs/PythonModules')
+sys.path.append(os.environ['HOME']+'/pythonlibs')
 
 import Private as P
 import System as S
@@ -379,8 +374,8 @@ if __name__ == '__main__':
   rsync    = 'rsync -a --delete --delete-excluded ' # base rsync command to use
   user     = os.environ['LOGNAME']                  # username of script user
   home     = os.environ['HOME']                     # your home dir
-  conf     = '%s/.myback' % (home)                  # configuration dir
-  logfile  = '%s/.LOGs/myback.log' % (home)         # log file
+  conf     = '%s/.increback' % (home)               # configuration dir
+  logfile  = '%s/.LOGs/increback.log' % (home)      # log file
   mxback   = 10                                     # max number of days to go back searching for latest dir
 
   # Ask not to suspend/hibernate while running:
@@ -444,11 +439,11 @@ if __name__ == '__main__':
     # finds the aforementioned file.
     if o.suspend:
       suspend_file = '%s/.LOGs/please_suspend_me' % (home)
-      FM.w2file(suspend_file,'myback.py asks for suspend...\n')
+      FM.w2file(suspend_file,'increback.py asks for suspend...\n')
 
     if o.hibernate:
       hibernate_file = '%s/.LOGs/please_hibernate_me' % (home)
-      FM.w2file(hibernate_file,'myback.py asks for hibernate...\n')
+      FM.w2file(hibernate_file,'increback.py asks for hibernate...\n')
 
   # Lastly, let the computer suspend/hibernate if it wants to:
   S.keep_me_up('stop')
