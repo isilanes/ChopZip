@@ -3,7 +3,7 @@
 
 '''
 myback
-(c) 2008, Iñaki Silanes
+(c) 2008-2009, Iñaki Silanes
 
 LICENSE
 
