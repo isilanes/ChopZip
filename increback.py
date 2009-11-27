@@ -50,14 +50,8 @@ import Time as T
 # Read arguments:
 parser = optparse.OptionParser()
 
-parser.add_option("-s", "--source",
-                  dest="source",
-                  help="Source machine. Default: localhost.",
-                  default='localhost')
-
-parser.add_option("-d", "--destination",
-                  dest="destination",
-                  help="Destination machine. Default: None.",
+parser.add_option("-c", "--config",
+                  help="Configuration file. Default: None.",
                   default=None)
 
 parser.add_option("-v", "--verbose",
@@ -107,55 +101,39 @@ def doit(cmnd=None):
 
 def read_config(options=None):
 
-  machines = []
-  for machine in [o.source,o.destination]:
-    conf_file = '%s/%s.conf' % (conf,machine)
+  conf_file = '{0}/{1}.conf'.format(conf_dir,options.config)
     
-    lines = FM.file2array(conf_file,'cb')
+  lines = FM.file2array(conf_file,'cb')
 
-    props = {}
-    for line in lines:
-      aline = line.replace('\n','').split('=')
-      props[aline[0]] = '='.join(aline[1:])
+  props = {}
+  for line in lines:
+    aline = line.replace('\n','').split('=')
+    props[aline[0]] = '='.join(aline[1:])
 
-    machines.append(props)
-
-  return machines
+  return props
 
 #--------------------------------------------------------------------------------#
 
 def make_checks(o):
 
-  if o.source == 'localhost':
-    if o.destination:
-      conf_file = '%s/%s.conf' % (conf,o.destination)
-      if not os.path.isfile(conf_file):
-        sys.exit('Error: destination "%s" is not available.' % (o.destination))
-
-    else:
-      sys.exit('Error: no destination machine entered.')
-
-  else:
-    o.destination = 'localhost'
+  pass
 
 #--------------------------------------------------------------------------------#
 
-def backup(machines=None,rsync=None,last_dir=None,offset=0):
+def backup(config=None,rsync=None,last_dir=None,offset=0):
   '''
   Actually make the backup.
   '''
 
   success = False
 
-  if machines:
-    src = machines[0]
-    dst = machines[1]
+  if config:
 
     if last_dir:
-      rsync = '%s --link-dest=%s' % (rsync, last_dir)
+      rsync = '{0} --link-dest={1}'.format(rsync, last_dir)
 
     # Actually do it:
-    cmnd = '%s %s/ %s:%s_%s/' % (rsync, src['FROMDIR'], dst['RSYNCAT'], dst['TODIR'],T.gimme_date(offset))
+    cmnd = '{0} {1[FROMDIR]}/ {1[TODIR]}/{2}/'.format(rsync,config,T.gimme_date(offset))
     doit(cmnd)
 
     success = True
@@ -167,28 +145,22 @@ def backup(machines=None,rsync=None,last_dir=None,offset=0):
 
 #--------------------------------------------------------------------------------#
 
-def find_last_dir(machines=None,maxt=1):
+def find_last_dir(config=None,maxd=1):
   '''
   Find last available dir into which rsync will hardlink unmodified files.
     maxd = max number of days we want to move back.
   '''
  
   gd0 = T.gimme_date(0)
-  mm  = machines[1]
-  mmt = mm['TODIR']
-  mat = mm['RSYNCAT']
+  mmt = config['TODIR']
 
-  link_dir = None
-
-  for i in range(1,maxt+1):
+  for i in range(1,maxd+1):
     gdi = T.gimme_date(-i)
-    cmnd = 'echo "ls %s_%s" | sftp -b - %s 2> /dev/null && echo OK' % (mmt, gdi, mat)
-    test = S.cli(cmnd,1).split('\n')
-    if test and test[-1] == 'OK\n':
-      link_dir = '%s_%s' % (mmt, gdi)
-      break
+    dir = '{0}/{1}'.format(mmt,gdi)
+    if os.path.isdir(dir):
+      return dir
 
-  return link_dir
+    return None
 
 #--------------------------------------------------------------------------------#
 
@@ -203,24 +175,22 @@ def write_log(file):
 
 #--------------------------------------------------------------------------------#
 
-def build_rsync(in_rsync,machines=None):
+def build_rsync(in_rsync,config=None):
   '''
   Build a more complete rsync command.
   '''
 
   # Global excludes:
-  out_rsync = '%s --exclude-from=%s/global.excludes ' % (in_rsync, conf)
+  out_rsync = '{0} --exclude-from={1}/global.excludes '.format(in_rsync, conf_dir)
 
   # Verbosity:
-  if o.verbosity > 2:
+  if o.verbosity > 0:
     out_rsync += ' -vh '
-
-    if o.verbosity > 3:
-      out_rsync += ' --progress '
+    out_rsync += ' --progress '
 
   # Machine-specific options:
   try:
-    out_rsync += ' %s ' % (machines[1]['RSYNCOPS'])
+    out_rsync += ' {0} '.format(config['RSYNCOPS'])
 
   except:
     pass
@@ -371,35 +341,26 @@ def dir2date(dirname=None):
 if __name__ == '__main__':
 
   # General variables:
-  rsync    = 'rsync -a --delete --delete-excluded ' # base rsync command to use
-  user     = os.environ['LOGNAME']                  # username of script user
-  home     = os.environ['HOME']                     # your home dir
-  conf     = '%s/.increback' % (home)               # configuration dir
-  logfile  = '%s/.LOGs/increback.log' % (home)      # log file
-  mxback   = 10                                     # max number of days to go back searching for latest dir
-
-  # Ask not to suspend/hibernate while running:
-  S.keep_me_up('start')
+  rsync    = 'rsync -rltou --delete --delete-excluded ' # base rsync command to use
+  user     = os.environ['LOGNAME']                      # username of script user
+  home     = os.environ['HOME']                         # your home dir
+  conf_dir = '%s/.increback' % (home)                   # configuration dir
+  logfile  = '%s/.LOGs/increback.log' % (home)          # log file
+  mxback   = 20                                         # max number of days to go back 
+                                                        # searching for latest dir
 
   # Read configurations:
   if o.verbosity > 0:
     print "Reading config files...",
 
-  m = read_config(o)
+  cfg = read_config(o)
 
   if o.verbosity > 0: print " OK"
 
   # Build rsync command:
   if o.verbosity > 0: print "Building rsync command...",
 
-  rsync = build_rsync(rsync,m)
-
-  if o.verbosity > 0: print " OK"
-
-  # Hook to SSH agent:
-  if o.verbosity > 0: print "Hooking to SSH agent...",
-
-  P.ssh_hook(user)
+  rsync = build_rsync(rsync,cfg)
 
   if o.verbosity > 0: print " OK"
 
@@ -413,37 +374,27 @@ if __name__ == '__main__':
   # Find last available dir (whithin specified limit) to hardlink to when unaltered:
   if o.verbosity > 0: print "Determining last 'linkable' dir...",
 
-  last_dir = find_last_dir(m,mxback)
+  last_dir = find_last_dir(cfg,mxback)
 
   if o.verbosity > 0: print " -> '%s'" % (last_dir)
 
   # Determine if any to delete:
-  if o.verbosity > 1:
-    print "Finding out deletable dirs..."
-    find_deletable(m)
+  #if o.verbosity > 1:
+  #  print "Finding out deletable dirs..."
+  #
+  #find_deletable(cfg)
 
   # Make backup:
   if o.verbosity > 0:
     print "Doing actual backup..."
-  success = backup(m,rsync,last_dir,0)
 
+  success = backup(cfg,rsync,last_dir,0)
+
+  '''
   # At last, log:
   if not o.dryrun and success:
 
     if o.verbosity > 0: print "Logging info and exiting."
 
     write_log(logfile)
-
-    # If requested, place a file in a special location (~/.LOGs/). A root cron job should be running
-    # (in principle /root/bin/shutdown_if_requested.py), that will suspend/hibernate the PC if it
-    # finds the aforementioned file.
-    if o.suspend:
-      suspend_file = '%s/.LOGs/please_suspend_me' % (home)
-      FM.w2file(suspend_file,'increback.py asks for suspend...\n')
-
-    if o.hibernate:
-      hibernate_file = '%s/.LOGs/please_hibernate_me' % (home)
-      FM.w2file(hibernate_file,'increback.py asks for hibernate...\n')
-
-  # Lastly, let the computer suspend/hibernate if it wants to:
-  S.keep_me_up('stop')
+  '''
