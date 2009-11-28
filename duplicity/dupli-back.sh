@@ -11,7 +11,7 @@ EXCLUDES=$HOME/.myback/dupliback.excludes
 export TMPDIR=$HOME/.myback/tmp
 
 # PW for encryption:
-export PASSPHRASE='e/%$13oqr31i5r652adlhqgb'
+source ~/.duplicity_passphrase
 
 # PW for SSH:
 export SSH_AUTH_SOCK=`find /tmp/keyring-* -name 'socket.ssh' -user isilanes`
