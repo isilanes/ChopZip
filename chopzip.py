@@ -120,6 +120,9 @@ if o.decompress:
 
     chkfile(fn)
 
+    if ends(fn,'.lz'):
+      o.method = 'lzip'
+
     if o.method == 'lzip':
       cmnd = 'lzip -d {0}'.format(fn)
       p = sp(cmnd,shell=True,stdout=subprocess.PIPE)
