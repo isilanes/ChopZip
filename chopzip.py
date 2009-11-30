@@ -61,6 +61,11 @@ parser.add_option("-m","--method",
 		  type    = 'str',
                   default = 'lzma')
 
+parser.add_option("-T", "--timing",
+                  action="store_true",
+                  help="Ask for timing of various steps. Default: don't.",
+		  default=False)
+
 (o,args) = parser.parse_args()
 
 #--------------------------------------------------------------------------------#
@@ -112,6 +117,10 @@ if not o.method in ['xz','lzma','gzip','lzip']:
   msg = 'Unknown compression method "{0}" requested'.format(o.method)
   sys.exit(msg)
 
+if o.timing:
+  import Time as T
+  t = T.timing()
+
 sp = subprocess.Popen
 
 if o.decompress:
@@ -128,11 +137,17 @@ if o.decompress:
       p = sp(cmnd,shell=True,stdout=subprocess.PIPE)
       p.wait()
 
+      if o.timing:
+        t.milestone('Decompressed {0}'.format(fn))
+
     else:
       # Untar:
       cmnd = 'tar -xvf %s' % (fn)
       p = sp(cmnd,shell=True,stdout=subprocess.PIPE)
       p.wait()
+
+      if o.timing:
+        t.milestone('Untarred {0}'.format(fn))
 
       # Decompress:
       files = p.stdout.readlines()
@@ -160,6 +175,9 @@ if o.decompress:
       for p in pd:
         p.wait()
 
+      if o.timing:
+        t.milestone('Decompressed parts of {0}'.format(fn))
+
       # Join parts:
       cmnd = 'cat '
       for file in files:
@@ -175,6 +193,9 @@ if o.decompress:
       p = sp(cmnd,shell=True)
       p.wait()
 
+      if o.timing:
+        t.milestone('Joined parts of {0}'.format(fn))
+
       # Remove tmp:
       for file in files:
         afile = file.split('.')
@@ -184,6 +205,10 @@ if o.decompress:
       # Remove TAR:
       os.unlink(fn)
 
+    if o.timing:
+      t.milestone('Ended')
+      print t.summary()
+
 else:
 
   for fn in args:
@@ -192,6 +217,9 @@ else:
 
     # Split in ncpu chunks:
     chunks = mysplit(fn,o.ncpus)
+
+    if o.timing:
+      t.milestone('Chopped {0}'.format(fn))
 
     pd   = []
     ext  = 'lzma'
@@ -223,6 +251,9 @@ else:
     for p in pd:
       p.wait()
 
+    if o.timing:
+      t.milestone('Compressed chunks of {0}'.format(fn))
+
     if o.method == 'lzip':
       cmnd = 'cat '
 
@@ -233,6 +264,9 @@ else:
       p     = sp(cmnd,shell=True)
       p.wait()
 
+      if o.timing:
+        t.milestone('Joined chunks of {0}'.format(fn))
+
     else:
 
       # TAR result:
@@ -241,10 +275,17 @@ else:
       p    = sp(cmnd,shell=True)
       p.wait()
     
+      if o.timing:
+        t.milestone('Tarred chunks of {0}'.format(fn))
+
     # Remove uncompressed:
     os.unlink(fn)
 
     # remove tmp:
     for chunk in chunks:
       os.unlink(chunk+'.'+ext)
+
+    if o.timing:
+      t.milestone('Ended')
+      print t.summary()
 
