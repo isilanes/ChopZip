@@ -2,7 +2,7 @@
 # coding=utf-8
 
 '''
-plzma
+ChopZip
 (c) 2009, Iñaki Silanes
 
 LICENSE
@@ -22,11 +22,11 @@ DESCRIPTION
 
 USAGE
 
-% plzma [options] file(s)
+% chopzip [options] file(s)
 
 for options:
 
-% plzma -h 
+% chopzip -h 
 '''
 
 import os
