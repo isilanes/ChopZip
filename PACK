@@ -1,0 +1,18 @@
+#!/bin/bash
+
+PROGRAM='chopzip'
+INCLUDE="chopzip.py"
+
+VERSION=`git log | grep commit | wc -l`
+DIR=$PROGRAM.r$VERSION
+
+mkdir -p $DIR
+
+for file in $INCLUDE
+do
+  cp $file $DIR/
+done
+
+cp LICENSE $DIR/
+tar -zcvf $DIR.tgz $DIR/
+rm -rf $DIR
