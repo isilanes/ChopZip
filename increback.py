@@ -79,9 +79,9 @@ parser.add_option("--hibernate",
 
 #--------------------------------------------------------------------------------#
 
-# Make dry runs verbose:
+# Make dry runs more verbose:
 if o.dryrun:
-  o.verbosity = 2
+  o.verbosity += 1
 
 #--------------------------------------------------------------------------------#
 
@@ -145,22 +145,24 @@ def backup(config=None,rsync=None,last_dir=None,offset=0):
 
 #--------------------------------------------------------------------------------#
 
-def find_last_dir(config=None,maxd=1):
+def find_last_dir(config=None,maxd=1, verbosity=0):
   '''
   Find last available dir into which rsync will hardlink unmodified files.
     maxd = max number of days we want to move back.
   '''
- 
+
   gd0 = T.gimme_date(0)
   mmt = config['TODIR']
 
   for i in range(1,maxd+1):
     gdi = T.gimme_date(-i)
     dir = '{0}/{1}'.format(mmt,gdi)
+    if verbosity > 1:
+      print dir
     if os.path.isdir(dir):
       return dir
 
-    return None
+  return None
 
 #--------------------------------------------------------------------------------#
 
@@ -374,7 +376,7 @@ if __name__ == '__main__':
   # Find last available dir (whithin specified limit) to hardlink to when unaltered:
   if o.verbosity > 0: print "Determining last 'linkable' dir...",
 
-  last_dir = find_last_dir(cfg,mxback)
+  last_dir = find_last_dir(cfg,mxback,o.verbosity)
 
   if o.verbosity > 0: print " -> '%s'" % (last_dir)
 
