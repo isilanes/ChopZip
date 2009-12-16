@@ -57,9 +57,9 @@ parser.add_option("-l","--level",
                   default = 3)
 
 parser.add_option("-m","--method",
-                  help    = "Compression method. Available: gzip, lzma, xz. Default: lzma.",
+                  help    = "Compression method. Available: gzip, lzma, xz. Default: xz to compress, select by extension to decompress.",
 		  type    = 'str',
-                  default = 'lzma')
+                  default = None)
 
 parser.add_option("-T", "--timing",
                   action="store_true",
@@ -112,7 +112,7 @@ def ends(string,substring):
 
 #--------------------------------------------------------------------------------#
 
-if not o.method in ['xz','lzma','gzip','lzip']:
+if o.method and not o.method in ['xz','lzma','gzip','lzip']:
 
   msg = 'Unknown compression method "{0}" requested'.format(o.method)
   sys.exit(msg)
@@ -129,81 +129,25 @@ if o.decompress:
 
     chkfile(fn)
 
-    if ends(fn,'.lz'):
-      o.method = 'lzip'
+    if not o.method:
+      if   ends(fn,'.lz'):     o.method = 'lzip'
+      elif ends(fn,'.lzma'): o.method = 'lzma'
+      elif ends(fn,'.xz'):   o.method = 'xz'
+      elif ends(ffn,'.gz'):   o.method = 'gzip'
+      else:
+        msg = 'Don\'t know how "{0}" was compressed'.format(file)
+	sys.exit(msg)
 
-    if o.method == 'lzip':
-      cmnd = 'lzip -d {0}'.format(fn)
-      p = sp(cmnd,shell=True,stdout=subprocess.PIPE)
-      p.wait()
 
-      if o.timing:
-        t.milestone('Decompressed {0}'.format(fn))
+    # Take advantage of the fact that the method name 
+    # is equal to the command name:
+    cmnd = '{0} -d {1}'.format(o.method,fn)
 
-    else:
-      # Untar:
-      cmnd = 'tar -xvf %s' % (fn)
-      p = sp(cmnd,shell=True,stdout=subprocess.PIPE)
-      p.wait()
+    p = sp(cmnd,shell=True,stdout=subprocess.PIPE)
+    p.wait()
 
-      if o.timing:
-        t.milestone('Untarred {0}'.format(fn))
-
-      # Decompress:
-      files = p.stdout.readlines()
-
-      pd = []
-      for file in files:
-
-        file = file.replace('\n','')
-
-        if ends(file,'.lzma'):
-          cmnd = 'lzma -d %s' % (file)
-          pd.append(sp(cmnd,shell=True))
-
-        elif ends(file,'.gz'):
-          cmnd = 'gzip -d %s' % (file)
-          pd.append(sp(cmnd,shell=True))
-
-        elif ends(file,'.xz'):
-          cmnd = 'xz -d %s' % (file)
-          pd.append(sp(cmnd,shell=True))
-
-        else:
-          print 'Don\'t know how "{0}" was compressed'.format(file)
-
-      for p in pd:
-        p.wait()
-
-      if o.timing:
-        t.milestone('Decompressed parts of {0}'.format(fn))
-
-      # Join parts:
-      cmnd = 'cat '
-      for file in files:
-        afile = file.split('.')
-        file = '.'.join(afile[:-1])
-        cmnd += '%s ' % (file)
-
-      aout = fn.split('.')
-      out  = '.'.join(aout[:-1])
-    
-      cmnd += ' > %s' % (out)
-
-      p = sp(cmnd,shell=True)
-      p.wait()
-
-      if o.timing:
-        t.milestone('Joined parts of {0}'.format(fn))
-
-      # Remove tmp:
-      for file in files:
-        afile = file.split('.')
-        file  = '.'.join(afile[:-1])
-        os.unlink(file)
-
-      # Remove TAR:
-      os.unlink(fn)
+    if o.timing:
+      t.milestone('Decompressed {0}'.format(fn))
 
     if o.timing:
       t.milestone('Ended')
@@ -215,6 +159,9 @@ else:
 
     chkfile(fn)
 
+    if not o.method:
+      o.method = 'xz'
+
     # Split in ncpu chunks:
     chunks = mysplit(fn,o.ncpus)
 
@@ -223,29 +170,24 @@ else:
 
     pd   = []
     ext  = 'lzma'
-    text = 'plz'
     for chunk in chunks:
 
       if o.method == 'lzma':
         cmnd = 'lzma -%i "%s"' % (int(o.level),chunk)
-        pd.append(sp(cmnd,shell=True))
 
       elif o.method == 'xz':
         ext   = 'xz'
-        text  = 'pxz'
         cmnd  = 'xz -%i "%s"' % (int(o.level),chunk)
-        pd.append(sp(cmnd,shell=True))
 
       elif o.method == 'gzip':
         ext   = 'gz'
-        text  = 'pgz'
         cmnd  = 'gzip -%i "%s"' % (int(o.level),chunk)
-        pd.append(sp(cmnd,shell=True))
 
       elif o.method == 'lzip':
         ext  = 'lz'
         cmnd = 'lzip -%i "%s"' % (int(o.level),chunk)
-        pd.append(sp(cmnd,shell=True))
+
+      pd.append(sp(cmnd,shell=True))
 
     # Wait for all processes to finish:
     for p in pd:
@@ -254,29 +196,18 @@ else:
     if o.timing:
       t.milestone('Compressed chunks of {0}'.format(fn))
 
-    if o.method == 'lzip':
-      cmnd = 'cat '
+    # Join chunks:
+    cmnd = 'cat '
 
-      for chunk in chunks:
-        cmnd += ' {0}.{1} '.format(chunk,ext)
+    for chunk in chunks:
+      cmnd += ' {0}.{1} '.format(chunk,ext)
 
-      cmnd += ' > {0}.lz'.format(fn)
-      p     = sp(cmnd,shell=True)
-      p.wait()
+    cmnd += ' > {0}.{1}'.format(fn,ext)
+    p     = sp(cmnd,shell=True)
+    p.wait()
 
-      if o.timing:
-        t.milestone('Joined chunks of {0}'.format(fn))
-
-    else:
-
-      # TAR result:
-      pext = '.'+ext+' '
-      cmnd = 'tar -cf %s.%s ' % (fn,text) + pext.join(chunks) + pext
-      p    = sp(cmnd,shell=True)
-      p.wait()
-    
-      if o.timing:
-        t.milestone('Tarred chunks of {0}'.format(fn))
+    if o.timing:
+      t.milestone('Joined chunks of {0}'.format(fn))
 
     # Remove uncompressed:
     os.unlink(fn)
