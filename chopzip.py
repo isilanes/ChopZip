@@ -133,7 +133,7 @@ if o.decompress:
       if   ends(fn,'.lz'):   o.method = 'lzip'
       elif ends(fn,'.lzma'): o.method = 'lzma'
       elif ends(fn,'.xz'):   o.method = 'xz'
-      elif ends(ffn,'.gz'):  o.method = 'gzip'
+      elif ends(fn,'.gz'):  o.method = 'gzip'
       else:
         msg = 'Don\'t know how "{0}" was compressed'.format(file)
 	sys.exit(msg)
@@ -172,10 +172,10 @@ else:
     for chunk in chunks:
 
       if o.method == 'lzma':
+        ext = 'lzma'
         cmnd = 'lzma -%i "%s"' % (int(o.level),chunk)
 
       elif o.method == 'xz':
-        ext   = 'xz'
         cmnd  = 'xz -%i "%s"' % (int(o.level),chunk)
 
       elif o.method == 'gzip':
