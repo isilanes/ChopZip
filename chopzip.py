@@ -70,7 +70,7 @@ parser.add_option("-T", "--timing",
 
 #--------------------------------------------------------------------------------#
 
-def mysplit(fn,nchunks=2):
+def mysplit(fn,nchunks=1):
 
   chunks = []
 
@@ -130,14 +130,13 @@ if o.decompress:
     chkfile(fn)
 
     if not o.method:
-      if   ends(fn,'.lz'):     o.method = 'lzip'
+      if   ends(fn,'.lz'):   o.method = 'lzip'
       elif ends(fn,'.lzma'): o.method = 'lzma'
       elif ends(fn,'.xz'):   o.method = 'xz'
-      elif ends(ffn,'.gz'):   o.method = 'gzip'
+      elif ends(ffn,'.gz'):  o.method = 'gzip'
       else:
         msg = 'Don\'t know how "{0}" was compressed'.format(file)
 	sys.exit(msg)
-
 
     # Take advantage of the fact that the method name 
     # is equal to the command name:
@@ -168,8 +167,8 @@ else:
     if o.timing:
       t.milestone('Chopped {0}'.format(fn))
 
-    pd   = []
-    ext  = 'lzma'
+    pd  = []
+    ext = 'xz'
     for chunk in chunks:
 
       if o.method == 'lzma':
