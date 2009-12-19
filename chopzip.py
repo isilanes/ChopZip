@@ -47,9 +47,9 @@ parser.add_option("-d","--decompress",
                   default = False)
 
 parser.add_option("-n","--ncpus",
-                  help    = "Number of CPUs to use. Default: 2.",
+                  help    = "Number of CPUs to use. Default: autodetect number of cores.",
 		  type    = 'int',
-                  default = 2)
+                  default = None)
 
 parser.add_option("-l","--level",
                   help    = "Compression level (1 min to 9 max). Default: 3.",
@@ -153,6 +153,15 @@ if o.method and not o.method in methods:
   msg = 'Unknown compression method "{0}" requested'.format(o.method)
   sys.exit(msg)
 
+if not o.ncpus:
+  fn = '/proc/cpuinfo'
+  f = open(fn)
+
+  o.ncpus = 0
+  for line in f:
+    if 'processor	:' in line:
+      o.ncpus += 1
+
 if o.timing:
   import Time as T
   t = T.timing()
@@ -193,7 +202,7 @@ if o.decompress:
 
     if m['cat']:
       # Then simple concatenation can be (and was) used in compression.
-      cmnd = '{0} {1}.{2}'.format(m['dec'], fn, m['ext'])
+      cmnd = '{0} {1}'.format(m['dec'], fn)
       p = sp(cmnd,shell=True,stdout=subprocess.PIPE)
       p.wait()
 
