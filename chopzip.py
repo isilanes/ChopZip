@@ -112,7 +112,43 @@ def ends(string,substring):
 
 #--------------------------------------------------------------------------------#
 
-if o.method and not o.method in ['xz','lzma','gzip','lzip']:
+#
+# The dictionary here defines all that needs to be know about a compressor:
+#
+# cat : whether concatenated compressed files are fine. If not, tar must be used.
+# ext : extension of compressed file
+# tax : extension of tarred file, if tarred.
+# com : compression command
+# dec : decompression command
+#
+
+methods = { 
+            'xz' : {
+                     'cat' : True,
+                     'ext' : 'xz',
+	             'com' : 'xz',
+                     'dec' : 'xz -d',
+                    },
+
+            'gzip' : {
+                     'cat' : True,
+                     'ext' : 'gz',
+	             'com' : 'gzip',
+                     'dec' : 'gzip -d',
+                    },
+
+            'lzma' : {
+                     'cat' : False,
+                     'ext' : 'lzma',
+                     'tax' : 'plzma',
+	             'com' : 'lzma',
+                     'dec' : 'lzma -d',
+                    },
+          }
+
+#--------------------------------------------------------------------------------#
+
+if o.method and not o.method in methods:
 
   msg = 'Unknown compression method "{0}" requested'.format(o.method)
   sys.exit(msg)
@@ -129,24 +165,68 @@ if o.decompress:
 
     chkfile(fn)
 
+    # If not defined explicitly, guess format by extension:
     if not o.method:
-      if   ends(fn,'.lz'):   o.method = 'lzip'
-      elif ends(fn,'.lzma'): o.method = 'lzma'
-      elif ends(fn,'.xz'):   o.method = 'xz'
-      elif ends(fn,'.gz'):  o.method = 'gzip'
-      else:
-        msg = 'Don\'t know how "{0}" was compressed'.format(file)
+      for k,v in methods.items():
+
+        try:
+          if ends(fn,'.'+v['tax']): 
+            o.method = k
+            break
+	except:
+	  pass
+
+      for k,v in methods.items():
+        if ends(fn,'.'+v['ext']): 
+	  o.method = k
+          break
+
+      # If still no match, die:
+      if not o.method:
+        msg = 'Don\'t know how "{0}" was compressed'.format(fn)
 	sys.exit(msg)
 
-    # Take advantage of the fact that the method name 
-    # is equal to the command name:
-    cmnd = '{0} -d {1}'.format(o.method,fn)
+    # Dictionary with details:
+    m = methods[o.method]
 
-    p = sp(cmnd,shell=True,stdout=subprocess.PIPE)
-    p.wait()
+    # Decompress:
 
-    if o.timing:
-      t.milestone('Decompressed {0}'.format(fn))
+    if m['cat']:
+      # Then simple concatenation can be (and was) used in compression.
+      cmnd = '{0} {1}.{2}'.format(m['dec'], fn, m['ext'])
+      p = sp(cmnd,shell=True,stdout=subprocess.PIPE)
+      p.wait()
+
+    else:
+      # Then tar must have been used.
+
+      basefn = fn.replace('.'+m['tax'],'')
+
+      # First, untar:
+      cmnd = 'tar -xf {0}'.format(fn)
+      p = sp(cmnd,shell=True,stdout=subprocess.PIPE)
+      p.wait()
+      chunks = glob.glob('{0}.chunk.*'.format(basefn))
+
+      # Then, decompress each chunk:
+      conc = 'cat '
+      for chunk in chunks:
+        cmnd = '{0} {1}'.format(m['dec'], chunk)
+        p = sp(cmnd,shell=True,stdout=subprocess.PIPE)
+        p.wait()
+	conc += ' {0} '.format(chunk.replace('.'+m['ext'],''))
+      conc += ' > {0}'.format(basefn)
+
+      # Then, concatenate uncompressed chunks:
+      p = sp(conc,shell=True,stdout=subprocess.PIPE)
+      p.wait()
+
+      # Finally, delete chunks and tarred file:
+      os.remove(fn)
+      for chunk in chunks:
+        os.remove(chunk.replace('.'+m['ext'],''))
+
+    if o.timing: t.milestone('Decompressed {0}'.format(fn))
 
     if o.timing:
       t.milestone('Ended')
@@ -158,34 +238,22 @@ else:
 
     chkfile(fn)
 
-    if not o.method:
-      o.method = 'xz'
+    # Default method if none specified:
+    if not o.method: o.method = 'xz'
+
+    # Dictionary with details:
+    m = methods[o.method]
 
     # Split in ncpu chunks:
     chunks = mysplit(fn,o.ncpus)
 
-    if o.timing:
-      t.milestone('Chopped {0}'.format(fn))
+    if o.timing: t.milestone('Chopped {0}'.format(fn))
 
+    # Create one compression thread per chunk:
     pd  = []
-    ext = 'xz'
     for chunk in chunks:
 
-      if o.method == 'lzma':
-        ext = 'lzma'
-        cmnd = 'lzma -%i "%s"' % (int(o.level),chunk)
-
-      elif o.method == 'xz':
-        cmnd  = 'xz -%i "%s"' % (int(o.level),chunk)
-
-      elif o.method == 'gzip':
-        ext   = 'gz'
-        cmnd  = 'gzip -%i "%s"' % (int(o.level),chunk)
-
-      elif o.method == 'lzip':
-        ext  = 'lz'
-        cmnd = 'lzip -%i "%s"' % (int(o.level),chunk)
-
+      cmnd = '{0} -{1} "{2}"'.format(m['com'], int(o.level), chunk)
       pd.append(sp(cmnd,shell=True))
 
     # Wait for all processes to finish:
@@ -196,24 +264,32 @@ else:
       t.milestone('Compressed chunks of {0}'.format(fn))
 
     # Join chunks:
-    cmnd = 'cat '
 
-    for chunk in chunks:
-      cmnd += ' {0}.{1} '.format(chunk,ext)
+    if m['cat']:
+      # Then simple concatenation can be used.
+      cmnd = 'cat '
+      for chunk in chunks:
+        cmnd += ' {0}.{1} '.format(chunk,m['ext'])
+      cmnd += ' > {0}.{1}'.format(fn,m['ext'])
+      p = sp(cmnd,shell=True)
+      p.wait()
 
-    cmnd += ' > {0}.{1}'.format(fn,ext)
-    p     = sp(cmnd,shell=True)
-    p.wait()
+    else:
+      # Then tar must be used.
+      cmnd = 'tar -cf {0}.{1} '.format(fn, m['tax'])
+      for chunk in chunks:
+        cmnd += ' {0}.{1} '.format(chunk,m['ext'])
+      p = sp(cmnd,shell=True)
+      p.wait()
 
-    if o.timing:
-      t.milestone('Joined chunks of {0}'.format(fn))
+    if o.timing: t.milestone('Joined chunks of {0}'.format(fn))
 
     # Remove uncompressed:
     os.unlink(fn)
 
-    # remove tmp:
+    # Remove tmp:
     for chunk in chunks:
-      os.unlink(chunk+'.'+ext)
+      os.unlink(chunk+'.'+m['ext'])
 
     if o.timing:
       t.milestone('Ended')
