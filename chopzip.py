@@ -137,6 +137,12 @@ methods = {
                      'dec' : 'gzip -d',
                     },
 
+            'lzip' : {
+                     'cat' : True,
+                     'ext' : 'lz',
+	             'com' : 'lzip',
+                     'dec' : 'lzip -d',
+                    },
             'lzma' : {
                      'cat' : False,
                      'ext' : 'lzma',
