@@ -66,6 +66,11 @@ parser.add_option("-T", "--timing",
                   help="Ask for timing of various steps. Default: don't.",
 		  default=False)
 
+parser.add_option("-v", "--verbose",
+                  action="store_true",
+                  help="Be extra verbose. Default: don't be.",
+		  default=False)
+
 (o,args) = parser.parse_args()
 
 #--------------------------------------------------------------------------------#
@@ -77,6 +82,7 @@ def mysplit(fn,nchunks=1):
   total_size = os.path.getsize(fn)
   chunk_size = math.trunc(total_size/nchunks) + 1
   cmnd       = 'split --verbose -b %i -a 3 -d %s %s.chunk.' % (chunk_size,fn,fn)
+  if o.verbose: print cmnd
   p          = sp(cmnd,shell=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
   p.wait()
 
@@ -209,6 +215,7 @@ if o.decompress:
     if m['cat']:
       # Then simple concatenation can be (and was) used in compression.
       cmnd = '{0} {1}'.format(m['dec'], fn)
+      if o.verbose: print cmnd
       p = sp(cmnd,shell=True,stdout=subprocess.PIPE)
       p.wait()
 
@@ -219,6 +226,7 @@ if o.decompress:
 
       # First, untar:
       cmnd = 'tar -xf {0}'.format(fn)
+      if o.verbose: print cmnd
       p = sp(cmnd,shell=True,stdout=subprocess.PIPE)
       p.wait()
       chunks = glob.glob('{0}.chunk.*'.format(basefn))
@@ -227,6 +235,7 @@ if o.decompress:
       conc = 'cat '
       for chunk in chunks:
         cmnd = '{0} {1}'.format(m['dec'], chunk)
+        if o.verbose: print cmnd
         p = sp(cmnd,shell=True,stdout=subprocess.PIPE)
         p.wait()
 	conc += ' {0} '.format(chunk.replace('.'+m['ext'],''))
@@ -269,6 +278,7 @@ else:
     for chunk in chunks:
 
       cmnd = '{0} -{1} "{2}"'.format(m['com'], int(o.level), chunk)
+      if o.verbose: print cmnd
       pd.append(sp(cmnd,shell=True))
 
     # Wait for all processes to finish:
@@ -286,6 +296,7 @@ else:
       for chunk in chunks:
         cmnd += ' {0}.{1} '.format(chunk,m['ext'])
       cmnd += ' > {0}.{1}'.format(fn,m['ext'])
+      if o.verbose: print cmnd
       p = sp(cmnd,shell=True)
       p.wait()
 
@@ -294,6 +305,7 @@ else:
       cmnd = 'tar -cf {0}.{1} '.format(fn, m['tax'])
       for chunk in chunks:
         cmnd += ' {0}.{1} '.format(chunk,m['ext'])
+      if o.verbose: print cmnd
       p = sp(cmnd,shell=True)
       p.wait()
 
