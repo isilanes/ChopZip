@@ -348,7 +348,7 @@ if __name__ == '__main__':
   home     = os.environ['HOME']                         # your home dir
   conf_dir = '%s/.increback' % (home)                   # configuration dir
   logfile  = '%s/.LOGs/increback.log' % (home)          # log file
-  mxback   = 20                                         # max number of days to go back 
+  mxback   = 30                                         # max number of days to go back 
                                                         # searching for latest dir
 
   # Read configurations:
