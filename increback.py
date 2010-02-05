@@ -185,6 +185,11 @@ def build_rsync(in_rsync,config=None):
   # Global excludes:
   out_rsync = '{0} --exclude-from={1}/global.excludes '.format(in_rsync, conf_dir)
 
+  # Particular excludes:
+  pef = '{0}/{1}.excludes'.format(conf_dir, o.config)
+  if os.path.isfile(pef):
+    out_rsync = '{0} --exclude-from={1} '.format(out_rsync, pef)
+
   # Verbosity:
   if o.verbosity > 0:
     out_rsync += ' -vh '
