@@ -81,16 +81,16 @@ def mysplit(fn,nchunks=1):
 
   total_size = os.path.getsize(fn)
   chunk_size = math.trunc(total_size/nchunks) + 1
-  cmnd       = 'split --verbose -b %i -a 3 -d %s %s.chunk.' % (chunk_size,fn,fn)
+  cmnd       = 'split --verbose -b {0} -a 3 -d "{1}" "{1}.chunk."'.format(chunk_size,fn)
   if o.verbose: print cmnd
   p          = sp(cmnd,shell=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
   p.wait()
 
   for line in p.stdout.readlines():
-    line = line.replace("'",'')
-    line = line.replace("`",'')
-    aline = line.split()[-1]
-    chunks.append(aline)
+    line  = line.replace("'",'')
+    line  = line.replace("\n",'')
+    chunk = line.split('`')[-1]
+    chunks.append(chunk)
 
   return chunks
 
@@ -276,7 +276,6 @@ else:
     # Create one compression thread per chunk:
     pd  = []
     for chunk in chunks:
-
       cmnd = '{0} -{1} "{2}"'.format(m['com'], int(o.level), chunk)
       if o.verbose: print cmnd
       pd.append(sp(cmnd,shell=True))
@@ -294,17 +293,17 @@ else:
       # Then simple concatenation can be used.
       cmnd = 'cat '
       for chunk in chunks:
-        cmnd += ' {0}.{1} '.format(chunk,m['ext'])
-      cmnd += ' > {0}.{1}'.format(fn,m['ext'])
+        cmnd += ' "{0}.{1}" '.format(chunk,m['ext'])
+      cmnd += ' > "{0}.{1}"'.format(fn,m['ext'])
       if o.verbose: print cmnd
       p = sp(cmnd,shell=True)
       p.wait()
 
     else:
       # Then tar must be used.
-      cmnd = 'tar -cf {0}.{1} '.format(fn, m['tax'])
+      cmnd = 'tar -cf "{0}.{1}" '.format(fn, m['tax'])
       for chunk in chunks:
-        cmnd += ' {0}.{1} '.format(chunk,m['ext'])
+        cmnd += ' "{0}.{1}" '.format(chunk,m['ext'])
       if o.verbose: print cmnd
       p = sp(cmnd,shell=True)
       p.wait()
