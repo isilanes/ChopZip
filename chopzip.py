@@ -1,9 +1,9 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 # coding=utf-8
 
 '''
 ChopZip
-(c) 2009, Iñaki Silanes
+(c) 2009-2010, Iñaki Silanes
 
 LICENSE
 
