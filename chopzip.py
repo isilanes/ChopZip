@@ -76,45 +76,43 @@ parser.add_option("-v", "--verbose",
 #--------------------------------------------------------------------------------#
 
 def mysplit(fn,nchunks=1):
-
-  chunks = []
-
-  total_size = os.path.getsize(fn)
-  chunk_size = math.trunc(total_size/nchunks) + 1
-  cmnd       = 'split --verbose -b {0} -a 3 -d "{1}" "{1}.chunk."'.format(chunk_size,fn)
-  if o.verbose: print cmnd
-  p          = sp(cmnd,shell=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
-  p.wait()
-
-  for line in p.stdout.readlines():
-    line  = line.replace("'",'')
-    line  = line.replace("\n",'')
-    chunk = line.split('`')[-1]
-    chunks.append(chunk)
-
-  return chunks
+    
+    chunks = []
+    
+    total_size = os.path.getsize(fn)
+    chunk_size = math.trunc(total_size/nchunks) + 1
+    cmnd       = 'split --verbose -b {0} -a 3 -d "{1}" "{1}.chunk."'.format(chunk_size,fn)
+    if o.verbose: print cmnd
+    p = sp(cmnd,shell=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+    p.wait()
+    
+    for line in p.stdout.readlines():
+        line  = line.replace("'",'')
+        line  = line.replace("\n",'')
+        chunk = line.split('`')[-1]
+        chunks.append(chunk)
+        
+    return chunks
 
 #--------------------------------------------------------------------------------#
 
 def chkfile(fn):
-
-  if not os.path.isfile(fn):
-
-    msg = 'Error: you requested operation on file "%s", but I can not find it!' % (fn)
-    sys.exit(msg)
+    
+    if not os.path.isfile(fn):
+        msg = 'Error: you requested operation on file "%s", but I can not find it!' % (fn)
+        sys.exit(msg)
 
 #--------------------------------------------------------------------------------#
 
 def ends(string,substring):
-
-  nc     = len(substring)
-  ending = ''.join(string[-nc:])
-
-  if substring == ending:
-    return True
-
-  else:
-    return False
+    
+    nc = len(substring)
+    ending = ''.join(string[-nc:])
+    
+    if substring == ending:
+        return True
+    else:
+        return False
 
 #--------------------------------------------------------------------------------#
 
@@ -161,27 +159,25 @@ methods = {
 #--------------------------------------------------------------------------------#
 
 if o.method and not o.method in methods:
-
-  msg = 'Unknown compression method "{0}" requested'.format(o.method)
-  sys.exit(msg)
+    msg = 'Unknown compression method "{0}" requested'.format(o.method)
+    sys.exit(msg)
 
 if not o.ncpus:
-  fn = '/proc/cpuinfo'
-  f = open(fn)
-
-  o.ncpus = 0
-  for line in f:
-    if 'processor	:' in line:
-      o.ncpus += 1
+    fn = '/proc/cpuinfo'
+    f = open(fn)
+    
+    o.ncpus = 0
+    for line in f:
+        if 'processor	:' in line:
+            o.ncpus += 1
 
 if o.timing:
-  import Time as T
-  t = T.timing()
+    import Time as T
+    t = T.Timing()
 
 sp = subprocess.Popen
 
 if o.decompress:
-
   for fn in args:
 
     chkfile(fn)
@@ -189,23 +185,22 @@ if o.decompress:
     # If not defined explicitly, guess format by extension:
     if not o.method:
       for k,v in methods.items():
-
-        try:
-          if ends(fn,'.'+v['tax']): 
-            o.method = k
-            break
-	except:
-	  pass
+          try:
+              if ends(fn,'.'+v['tax']): 
+                  o.method = k
+                  break
+          except:
+              pass
 
       for k,v in methods.items():
-        if ends(fn,'.'+v['ext']): 
-	  o.method = k
-          break
+          if ends(fn,'.'+v['ext']): 
+              o.method = k
+              break
 
       # If still no match, die:
       if not o.method:
-        msg = 'Don\'t know how "{0}" was compressed'.format(fn)
-	sys.exit(msg)
+          msg = 'Don\'t know how "{0}" was compressed'.format(fn)
+          sys.exit(msg)
 
     # Dictionary with details:
     m = methods[o.method]
@@ -213,11 +208,11 @@ if o.decompress:
     # Decompress:
 
     if m['cat']:
-      # Then simple concatenation can be (and was) used in compression.
-      cmnd = '{0} {1}'.format(m['dec'], fn)
-      if o.verbose: print cmnd
-      p = sp(cmnd,shell=True,stdout=subprocess.PIPE)
-      p.wait()
+        # Then simple concatenation can be (and was) used in compression.
+        cmnd = '{0} {1}'.format(m['dec'], fn)
+        if o.verbose: print cmnd
+        p = sp(cmnd,shell=True,stdout=subprocess.PIPE)
+        p.communicate()
 
     else:
       # Then tar must have been used.
@@ -234,11 +229,11 @@ if o.decompress:
       # Then, decompress each chunk:
       conc = 'cat '
       for chunk in chunks:
-        cmnd = '{0} {1}'.format(m['dec'], chunk)
-        if o.verbose: print cmnd
-        p = sp(cmnd,shell=True,stdout=subprocess.PIPE)
-        p.wait()
-	conc += ' {0} '.format(chunk.replace('.'+m['ext'],''))
+          cmnd = '{0} {1}'.format(m['dec'], chunk)
+          if o.verbose: print cmnd
+          p = sp(cmnd,shell=True,stdout=subprocess.PIPE)
+          p.wait()
+          conc += ' {0} '.format(chunk.replace('.'+m['ext'],''))
       conc += ' > {0}'.format(basefn)
 
       # Then, concatenate uncompressed chunks:
@@ -248,18 +243,16 @@ if o.decompress:
       # Finally, delete chunks and tarred file:
       os.remove(fn)
       for chunk in chunks:
-        os.remove(chunk.replace('.'+m['ext'],''))
+          os.remove(chunk.replace('.'+m['ext'],''))
 
     if o.timing: t.milestone('Decompressed {0}'.format(fn))
 
     if o.timing:
-      t.milestone('Ended')
-      print t.summary()
+        t.milestone('Ended')
+        print t.summary()
 
 else:
-
   for fn in args:
-
     chkfile(fn)
 
     # Default method if none specified:
@@ -276,37 +269,37 @@ else:
     # Create one compression thread per chunk:
     pd  = []
     for chunk in chunks:
-      cmnd = '{0} -{1} "{2}"'.format(m['com'], int(o.level), chunk)
-      if o.verbose: print cmnd
-      pd.append(sp(cmnd,shell=True))
+        cmnd = '{0} -{1} "{2}"'.format(m['com'], int(o.level), chunk)
+        if o.verbose: print cmnd
+        pd.append(sp(cmnd,shell=True))
 
     # Wait for all processes to finish:
     for p in pd:
-      p.wait()
+        p.wait()
 
     if o.timing:
-      t.milestone('Compressed chunks of {0}'.format(fn))
+        t.milestone('Compressed chunks of {0}'.format(fn))
 
     # Join chunks:
 
     if m['cat']:
-      # Then simple concatenation can be used.
-      cmnd = 'cat '
-      for chunk in chunks:
-        cmnd += ' "{0}.{1}" '.format(chunk,m['ext'])
-      cmnd += ' > "{0}.{1}"'.format(fn,m['ext'])
-      if o.verbose: print cmnd
-      p = sp(cmnd,shell=True)
-      p.wait()
+        # Then simple concatenation can be used.
+        cmnd = 'cat '
+        for chunk in chunks:
+            cmnd += ' "{0}.{1}" '.format(chunk,m['ext'])
+        cmnd += ' > "{0}.{1}"'.format(fn,m['ext'])
+        if o.verbose: print cmnd
+        p = sp(cmnd,shell=True)
+        p.wait()
 
     else:
-      # Then tar must be used.
-      cmnd = 'tar -cf "{0}.{1}" '.format(fn, m['tax'])
-      for chunk in chunks:
-        cmnd += ' "{0}.{1}" '.format(chunk,m['ext'])
-      if o.verbose: print cmnd
-      p = sp(cmnd,shell=True)
-      p.wait()
+        # Then tar must be used.
+        cmnd = 'tar -cf "{0}.{1}" '.format(fn, m['tax'])
+        for chunk in chunks:
+            cmnd += ' "{0}.{1}" '.format(chunk,m['ext'])
+        if o.verbose: print cmnd
+        p = sp(cmnd,shell=True)
+        p.wait()
 
     if o.timing: t.milestone('Joined chunks of {0}'.format(fn))
 
@@ -315,9 +308,9 @@ else:
 
     # Remove tmp:
     for chunk in chunks:
-      os.unlink(chunk+'.'+m['ext'])
+        os.unlink(chunk+'.'+m['ext'])
 
     if o.timing:
-      t.milestone('Ended')
-      print t.summary()
+        t.milestone('Ended')
+        print t.summary()
 
