@@ -33,8 +33,9 @@ import os
 import sys
 import math
 import glob
-import subprocess
+import subprocess as sp
 import optparse
+import chopzip.core as core
 
 #--------------------------------------------------------------------------------#
 
@@ -83,7 +84,7 @@ def mysplit(fn,nchunks=1):
     chunk_size = math.trunc(total_size/nchunks) + 1
     cmnd = 'split --verbose -b {0} -a 3 -d "{1}" "{1}.chunk."'.format(chunk_size,fn)
     if o.verbose: print cmnd
-    p = sp(cmnd,shell=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+    p = sp.Popen(cmnd,shell=True,stdout=sp.PIPE,stderr=sp.PIPE)
     p.wait()
     
     for line in p.stdout.readlines():
@@ -175,8 +176,6 @@ if o.timing:
     import Time as T
     t = T.Timing()
 
-sp = subprocess.Popen
-
 if o.decompress:
   for fn in args:
 
@@ -211,7 +210,7 @@ if o.decompress:
         # Then simple concatenation can be (and was) used in compression.
         cmnd = '{0} "{1}"'.format(m['dec'], fn)
         if o.verbose: print cmnd
-        p = sp(cmnd,shell=True,stdout=subprocess.PIPE)
+        p = sp.Popen(cmnd,shell=True,stdout=sp.PIPE)
         p.communicate()
 
     else:
@@ -222,7 +221,7 @@ if o.decompress:
       # First, untar:
       cmnd = 'tar -xf {0}'.format(fn)
       if o.verbose: print cmnd
-      p = sp(cmnd,shell=True,stdout=subprocess.PIPE)
+      p = sp.Popen(cmnd,shell=True,stdout=sp.PIPE)
       p.wait()
       chunks = glob.glob('{0}.chunk.*'.format(basefn))
 
@@ -231,13 +230,13 @@ if o.decompress:
       for chunk in chunks:
           cmnd = '{0} {1}'.format(m['dec'], chunk)
           if o.verbose: print cmnd
-          p = sp(cmnd,shell=True,stdout=subprocess.PIPE)
+          p = sp.Popen(cmnd,shell=True,stdout=sp.PIPE)
           p.wait()
           conc += ' {0} '.format(chunk.replace('.'+m['ext'],''))
       conc += ' > {0}'.format(basefn)
 
       # Then, concatenate uncompressed chunks:
-      p = sp(conc,shell=True,stdout=subprocess.PIPE)
+      p = sp.Popen(conc,shell=True,stdout=sp.PIPE)
       p.wait()
 
       # Finally, delete chunks and tarred file:
@@ -271,7 +270,7 @@ else:
     for chunk in chunks:
         cmnd = '{0} -{1} "{2}"'.format(m['com'], int(o.level), chunk)
         if o.verbose: print cmnd
-        pd.append(sp(cmnd,shell=True))
+        pd.append(sp.Popen(cmnd,shell=True))
 
     # Wait for all processes to finish:
     for p in pd:
@@ -289,7 +288,7 @@ else:
             cmnd += ' "{0}.{1}" '.format(chunk,m['ext'])
         cmnd += ' > "{0}.{1}"'.format(fn,m['ext'])
         if o.verbose: print cmnd
-        p = sp(cmnd,shell=True)
+        p = sp.Popen(cmnd,shell=True)
         p.wait()
 
     else:
@@ -298,7 +297,7 @@ else:
         for chunk in chunks:
             cmnd += ' "{0}.{1}" '.format(chunk,m['ext'])
         if o.verbose: print cmnd
-        p = sp(cmnd,shell=True)
+        p = sp.Popen(cmnd,shell=True)
         p.wait()
 
     if o.timing: t.milestone('Joined chunks of {0}'.format(fn))
