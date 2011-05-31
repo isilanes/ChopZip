@@ -81,7 +81,7 @@ def mysplit(fn,nchunks=1):
     
     total_size = os.path.getsize(fn)
     chunk_size = math.trunc(total_size/nchunks) + 1
-    cmnd       = 'split --verbose -b {0} -a 3 -d "{1}" "{1}.chunk."'.format(chunk_size,fn)
+    cmnd = 'split --verbose -b {0} -a 3 -d "{1}" "{1}.chunk."'.format(chunk_size,fn)
     if o.verbose: print cmnd
     p = sp(cmnd,shell=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
     p.wait()
@@ -209,7 +209,7 @@ if o.decompress:
 
     if m['cat']:
         # Then simple concatenation can be (and was) used in compression.
-        cmnd = '{0} {1}'.format(m['dec'], fn)
+        cmnd = '{0} "{1}"'.format(m['dec'], fn)
         if o.verbose: print cmnd
         p = sp(cmnd,shell=True,stdout=subprocess.PIPE)
         p.communicate()
