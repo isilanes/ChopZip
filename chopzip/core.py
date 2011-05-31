@@ -21,7 +21,9 @@ def split_it(fn,opts):
     p = sp.Popen(cmnd, stdout=sp.PIPE, stderr=sp.PIPE, shell=True)
     s = p.communicate()
     
-    for line in s[0].split('\n')[:-1]:
+    m = str(s[0],encoding='utf8').split('\n')[:-1]
+
+    for line in m:
         line = line.replace("'",'')
         line = line.replace("\n",'')
         chunk = line.split('`')[-1]

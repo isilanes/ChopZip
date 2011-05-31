@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python
 # coding=utf-8
 
 '''
@@ -30,10 +30,6 @@ for options:
 '''
 
 import os
-import sys
-import math
-import glob
-import subprocess as sp
 import optparse
 import chopzip.core as core
 
@@ -145,5 +141,5 @@ else:
         
         if o.timing:
             t.milestone('Ended')
-            print t.summary()
+            print(t.summary())
 
