@@ -76,240 +76,74 @@ parser.add_option("-v", "--verbose",
 
 #--------------------------------------------------------------------------------#
 
-def mysplit(fn,nchunks=1):
-    
-    chunks = []
-    
-    total_size = os.path.getsize(fn)
-    chunk_size = math.trunc(total_size/nchunks) + 1
-    cmnd = 'split --verbose -b {0} -a 3 -d "{1}" "{1}.chunk."'.format(chunk_size,fn)
-    if o.verbose: print cmnd
-    p = sp.Popen(cmnd,shell=True,stdout=sp.PIPE,stderr=sp.PIPE)
-    p.wait()
-    
-    for line in p.stdout.readlines():
-        line  = line.replace("'",'')
-        line  = line.replace("\n",'')
-        chunk = line.split('`')[-1]
-        chunks.append(chunk)
-        
-    return chunks
-
-#--------------------------------------------------------------------------------#
-
-def chkfile(fn):
-    
-    if not os.path.isfile(fn):
-        msg = 'Error: you requested operation on file "%s", but I can not find it!' % (fn)
-        sys.exit(msg)
-
-#--------------------------------------------------------------------------------#
-
-def ends(string,substring):
-    
-    nc = len(substring)
-    ending = ''.join(string[-nc:])
-    
-    if substring == ending:
-        return True
-    else:
-        return False
-
-#--------------------------------------------------------------------------------#
-
-#
-# The dictionary here defines all that needs to be know about a compressor:
-#
-# cat : whether concatenated compressed files are fine. If not, tar must be used.
-# ext : extension of compressed file
-# tax : extension of tarred file, if tarred.
-# com : compression command
-# dec : decompression command
-#
-
-methods = { 
-            'xz' : {
-                     'cat' : True,
-                     'ext' : 'xz',
-	             'com' : 'xz',
-                     'dec' : 'xz -d',
-                    },
-
-            'gzip' : {
-                     'cat' : True,
-                     'ext' : 'gz',
-	             'com' : 'gzip',
-                     'dec' : 'gzip -d',
-                    },
-
-            'lzip' : {
-                     'cat' : True,
-                     'ext' : 'lz',
-	             'com' : 'lzip',
-                     'dec' : 'lzip -d',
-                    },
-            'lzma' : {
-                     'cat' : False,
-                     'ext' : 'lzma',
-                     'tax' : 'plzma',
-	             'com' : 'lzma',
-                     'dec' : 'lzma -d',
-                    },
-          }
-
-#--------------------------------------------------------------------------------#
-
-if o.method and not o.method in methods:
-    msg = 'Unknown compression method "{0}" requested'.format(o.method)
-    sys.exit(msg)
-
+# If number of cores not given, use them all:
 if not o.ncpus:
-    fn = '/proc/cpuinfo'
-    f = open(fn)
-    
-    o.ncpus = 0
-    for line in f:
-        if 'processor	:' in line:
-            o.ncpus += 1
+    o.ncpus = core.count_cores()
 
 if o.timing:
     import Time as T
     t = T.Timing()
 
 if o.decompress:
-  for fn in args:
-
-    chkfile(fn)
-
-    # If not defined explicitly, guess format by extension:
-    if not o.method:
-      for k,v in methods.items():
-          try:
-              if ends(fn,'.'+v['tax']): 
-                  o.method = k
-                  break
-          except:
-              pass
-
-      for k,v in methods.items():
-          if ends(fn,'.'+v['ext']): 
-              o.method = k
-              break
-
-      # If still no match, die:
-      if not o.method:
-          msg = 'Don\'t know how "{0}" was compressed'.format(fn)
-          sys.exit(msg)
-
-    # Dictionary with details:
-    m = methods[o.method]
-
-    # Decompress:
-
-    if m['cat']:
-        # Then simple concatenation can be (and was) used in compression.
-        cmnd = '{0} "{1}"'.format(m['dec'], fn)
-        if o.verbose: print cmnd
-        p = sp.Popen(cmnd,shell=True,stdout=sp.PIPE)
-        p.communicate()
-
-    else:
-      # Then tar must have been used.
-
-      basefn = fn.replace('.'+m['tax'],'')
-
-      # First, untar:
-      cmnd = 'tar -xf {0}'.format(fn)
-      if o.verbose: print cmnd
-      p = sp.Popen(cmnd,shell=True,stdout=sp.PIPE)
-      p.wait()
-      chunks = glob.glob('{0}.chunk.*'.format(basefn))
-
-      # Then, decompress each chunk:
-      conc = 'cat '
-      for chunk in chunks:
-          cmnd = '{0} {1}'.format(m['dec'], chunk)
-          if o.verbose: print cmnd
-          p = sp.Popen(cmnd,shell=True,stdout=sp.PIPE)
-          p.wait()
-          conc += ' {0} '.format(chunk.replace('.'+m['ext'],''))
-      conc += ' > {0}'.format(basefn)
-
-      # Then, concatenate uncompressed chunks:
-      p = sp.Popen(conc,shell=True,stdout=sp.PIPE)
-      p.wait()
-
-      # Finally, delete chunks and tarred file:
-      os.remove(fn)
-      for chunk in chunks:
-          os.remove(chunk.replace('.'+m['ext'],''))
-
-    if o.timing: t.milestone('Decompressed {0}'.format(fn))
-
-    if o.timing:
-        t.milestone('Ended')
-        print t.summary()
+    for fn in args:
+        # Check that file exists:
+        core.isfile(fn)
+        
+        # If not defined explicitly, guess format by extension:
+        if not o.method:
+            o.method = core.guess_by_ext(fn)
+            
+        # Create main object:
+        cc = core.Compression(o)
+                
+        # Decompress:
+        cc.decompress(fn)
+        
+        if o.timing: 
+            t.milestone('Decompressed {0}'.format(fn))
+            
+        if o.timing:
+            t.milestone('Ended')
+            print(t.summary())
 
 else:
-  for fn in args:
-    chkfile(fn)
+    for fn in args:
+        # Check that file exists:
+        core.isfile(fn)
+        
+        # Default method if none specified:
+        if not o.method: 
+            o.method = 'xz'
+            
+        # Create main object:
+        cc = core.Compression(o)
+        
+        # Split in ncpu chunks:
+        chunks = core.split_it(fn,o)
+        
+        if o.timing:
+            t.milestone('Chopped {0}'.format(fn))
+            
+        # Compress:
+        cc.compress_chunks(chunks)
 
-    # Default method if none specified:
-    if not o.method: o.method = 'xz'
+        if o.timing:
+            t.milestone('Compressed chunks of {0}'.format(fn))
 
-    # Dictionary with details:
-    m = methods[o.method]
-
-    # Split in ncpu chunks:
-    chunks = mysplit(fn,o.ncpus)
-
-    if o.timing: t.milestone('Chopped {0}'.format(fn))
-
-    # Create one compression thread per chunk:
-    pd  = []
-    for chunk in chunks:
-        cmnd = '{0} -{1} "{2}"'.format(m['com'], int(o.level), chunk)
-        if o.verbose: print cmnd
-        pd.append(sp.Popen(cmnd,shell=True))
-
-    # Wait for all processes to finish:
-    for p in pd:
-        p.wait()
-
-    if o.timing:
-        t.milestone('Compressed chunks of {0}'.format(fn))
-
-    # Join chunks:
-
-    if m['cat']:
-        # Then simple concatenation can be used.
-        cmnd = 'cat '
+        # Join chunks:
+        cc.join_chunks( chunks, fn)
+        
+        if o.timing: 
+            t.milestone('Joined chunks of {0}'.format(fn))
+            
+        # Remove uncompressed:
+        os.unlink(fn)
+        
+        # Remove tmp:
         for chunk in chunks:
-            cmnd += ' "{0}.{1}" '.format(chunk,m['ext'])
-        cmnd += ' > "{0}.{1}"'.format(fn,m['ext'])
-        if o.verbose: print cmnd
-        p = sp.Popen(cmnd,shell=True)
-        p.wait()
-
-    else:
-        # Then tar must be used.
-        cmnd = 'tar -cf "{0}.{1}" '.format(fn, m['tax'])
-        for chunk in chunks:
-            cmnd += ' "{0}.{1}" '.format(chunk,m['ext'])
-        if o.verbose: print cmnd
-        p = sp.Popen(cmnd,shell=True)
-        p.wait()
-
-    if o.timing: t.milestone('Joined chunks of {0}'.format(fn))
-
-    # Remove uncompressed:
-    os.unlink(fn)
-
-    # Remove tmp:
-    for chunk in chunks:
-        os.unlink(chunk+'.'+m['ext'])
-
-    if o.timing:
-        t.milestone('Ended')
-        print t.summary()
+            os.unlink(chunk+'.'+cc.ext)
+        
+        if o.timing:
+            t.milestone('Ended')
+            print t.summary()
 
