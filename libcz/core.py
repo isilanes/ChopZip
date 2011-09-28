@@ -187,3 +187,63 @@ def isfile(fn):
         fmt = 'Error: you requested operation on file "%s", but I can not find it!'
         msg = fmt % (fn)
         sys.exit(msg)
+
+#------------------------------------------------------------------------------#
+
+class Timing:
+  
+  def __init__(self):
+      self.t0 = time.time()
+      self.milestones = []
+      self.data = {}
+
+  # --- #
+
+  def milestone(self,id=None):
+      '''Define a milestone.'''
+
+      # ID of milestone:
+      if not id:
+          id = 'unk'
+
+      # Avoid dupe IDs:
+      while id in self.milestones:
+          id += 'x'
+
+      # Current time:
+      tnow = time.time()
+
+      # Log data:
+      self.milestones.append(id)
+      self.data[id] = { 'time' : tnow }
+
+  # --- #
+
+  def summary(self,seconds=True):
+      '''Print a summary of milestones so far.'''
+
+      # Time of last milestone so far:
+      otime = self.t0
+
+      # Max with of labels, in characters:
+      maxl = 9
+      for milestone in self.milestones:
+          l = len(milestone) + 1
+          if l > maxl:
+              maxl = l
+
+      # Header:
+      smry = '\n{0:>8} {1:>{3}} {2:>8}\n'.format('Time', 'Milestone', 'Elapsed', maxl)
+
+      # Print a line for each milestone:
+      for milestone in self.milestones:
+          # Elapsed since last milestone (aka "otime"):
+          t = self.data[milestone]['time']
+          delta =  t - otime
+          otime = t
+
+          smry += '{0:>9.2f} {1:>{3}} {2:>9.2f}\n'.format(t-self.t0, milestone, delta, maxl)
+
+      return smry
+
+#--------------------------------------------------------------------------------#

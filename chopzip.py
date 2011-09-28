@@ -77,8 +77,7 @@ if not o.ncpus:
     o.ncpus = LC.count_cores()
 
 if o.timing:
-    import Time as T
-    t = T.Timing()
+    tm = LC.Timing()
 
 if o.decompress:
     for fn in args:
@@ -96,11 +95,11 @@ if o.decompress:
         cc.decompress(fn)
         
         if o.timing: 
-            t.milestone('Decompressed {0}'.format(fn))
+            tm.milestone('Decompressed {0}'.format(fn))
             
         if o.timing:
-            t.milestone('Ended')
-            print(t.summary())
+            tm.milestone('Ended')
+            print(tm.summary())
 
 else:
     for fn in args:
@@ -118,19 +117,19 @@ else:
         chunks = LC.split_it(fn,o)
         
         if o.timing:
-            t.milestone('Chopped {0}'.format(fn))
+            tm.milestone('Chopped {0}'.format(fn))
             
         # Compress:
         cc.compress_chunks(chunks)
 
         if o.timing:
-            t.milestone('Compressed chunks of {0}'.format(fn))
+            tm.milestone('Compressed chunks of {0}'.format(fn))
 
         # Join chunks:
         cc.join_chunks( chunks, fn)
         
         if o.timing: 
-            t.milestone('Joined chunks of {0}'.format(fn))
+            tm.milestone('Joined chunks of {0}'.format(fn))
             
         # Remove uncompressed:
         os.unlink(fn)
@@ -140,6 +139,5 @@ else:
             os.unlink(chunk+'.'+cc.ext)
         
         if o.timing:
-            t.milestone('Ended')
-            print(t.summary())
-
+            tm.milestone('Ended')
+            print(tm.summary())
