@@ -1,6 +1,7 @@
 import os
 import sys
 import math
+import time
 import subprocess as sp
 
 #------------------------------------------------------------------------------#
@@ -92,8 +93,13 @@ class Compression:
             pd.append(sp.Popen(cmnd,shell=True))
         
         # Wait for all processes to finish:
-        for p in pd:
-            p.communicate()
+        while pd:
+            new_pd = []
+            for p in pd:
+                finished = p.poll()
+                if not finished:
+                    new_pd.append(p)
+                    time.sleep(1)
 
     # ----- #
 

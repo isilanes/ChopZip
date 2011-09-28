@@ -3,7 +3,7 @@
 
 '''
 ChopZip
-(c) 2009-2010, Iñaki Silanes
+(c) 2009-2011, Iñaki Silanes
 
 LICENSE
 
@@ -31,7 +31,7 @@ for options:
 
 import os
 import optparse
-import chopzip.core as core
+import libcz.core as LC
 
 #--------------------------------------------------------------------------------#
 
@@ -74,7 +74,7 @@ parser.add_option("-v", "--verbose",
 
 # If number of cores not given, use them all:
 if not o.ncpus:
-    o.ncpus = core.count_cores()
+    o.ncpus = LC.count_cores()
 
 if o.timing:
     import Time as T
@@ -83,14 +83,14 @@ if o.timing:
 if o.decompress:
     for fn in args:
         # Check that file exists:
-        core.isfile(fn)
+        LC.isfile(fn)
         
         # If not defined explicitly, guess format by extension:
         if not o.method:
-            o.method = core.guess_by_ext(fn)
+            o.method = LC.guess_by_ext(fn)
             
         # Create main object:
-        cc = core.Compression(o)
+        cc = LC.Compression(o)
                 
         # Decompress:
         cc.decompress(fn)
@@ -105,17 +105,17 @@ if o.decompress:
 else:
     for fn in args:
         # Check that file exists:
-        core.isfile(fn)
+        LC.isfile(fn)
         
         # Default method if none specified:
         if not o.method: 
             o.method = 'xz'
             
         # Create main object:
-        cc = core.Compression(o)
+        cc = LC.Compression(o)
         
         # Split in ncpu chunks:
-        chunks = core.split_it(fn,o)
+        chunks = LC.split_it(fn,o)
         
         if o.timing:
             t.milestone('Chopped {0}'.format(fn))
