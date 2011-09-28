@@ -97,9 +97,10 @@ class Compression:
             new_pd = []
             for p in pd:
                 finished = p.poll()
-                if not finished:
+                if finished == None:
                     new_pd.append(p)
-                    time.sleep(1)
+                    time.sleep(0.1)
+            pd = new_pd[:]
 
     # ----- #
 
