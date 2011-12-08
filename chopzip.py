@@ -73,6 +73,11 @@ parser.add_option("-c", "--chunk-dir",
                   metavar="DIR",
 		  default='.')
 
+parser.add_option("-a", "--command-args",
+                  help="Argument(s) to pass directly to compression program. If more than one, or including dashes, enclose within quotes. Default: None.",
+                  metavar="ARGS",
+		  default='')
+
 (o,args) = parser.parse_args()
 
 #--------------------------------------------------------------------------------#

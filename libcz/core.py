@@ -82,7 +82,7 @@ class Compression:
     def decompress(self, fn):
         ''' Method to decompress given file "fn".'''
 
-        cmnd = '{0} "{1}"'.format(self.dec, fn)
+        cmnd = '{0} {2} "{1}"'.format(self.dec, fn, self.o.command_args)
         if self.o.verbose:
             print(cmnd)
 
@@ -99,7 +99,7 @@ class Compression:
         pd  = []
 
         for chunk in chunks:
-            cmnd = '{0} -{1} "{2}"'.format(self.com, int(self.o.level), chunk)
+            cmnd = '{0} -{1.level} {1.command_args} "{2}"'.format(self.com, self.o, chunk)
             if self.o.verbose:
                 print(cmnd)
 
