@@ -6,31 +6,50 @@ import subprocess as sp
 
 #------------------------------------------------------------------------------#
 
-def split_it(fn,opts):
-    '''
-    Function that takes a "fn" file name and makes "opts.ncpus" equal pieces 
-    out of it. It returns the list of filenames for the chunks.
-    '''
+def split_it(fn, opts):
+    ''' Function that takes a "fn" file name and makes "opts.ncpus" equal pieces 
+    out of it. It returns the list of filenames for the chunks.'''
+
+    ocd = opts.chunk_dir
+
+    # Check if the tmp dir for chunks exists. If it doesn't, create it, and
+    # remind us later that we should delete it.
+    delete_tmpdir = False
+    if not os.path.isdir(ocd):
+        try:
+            os.makedirs(ocd)
+            delete_tmpdir = True
+        except:
+            msg = 'Error: could not create tmp dir "{0}". Exiting...'.format(ocd)
+            print(msg)
+            sys.exit()
     
+    # The list of chunks:
     chunks = []
     
+    # Calculate size of each chunk:
     total_size = os.path.getsize(fn)
     chunk_size = math.trunc(total_size/opts.ncpus) + 1
-    cmnd = 'split --verbose -b {0} -a 3 -d "{1}" "{1}.chunk."'.format(chunk_size, fn)
+
+    # Use the "split" command to make actual splitting:
+    fmt = 'split --verbose -b {0} -a 3 -d "{1}" "{2}/{1}.chunk."'
+    cmnd = fmt.format(chunk_size, fn, ocd)
     if opts.verbose:
         print(cmnd)
     p = sp.Popen(cmnd, stdout=sp.PIPE, stderr=sp.PIPE, shell=True)
     s = p.communicate()
     
-    m = str(s[0],encoding='utf8').split('\n')[:-1]
+    # Get the output of split (list of chunk filenames):
+    m = str(s[0], encoding='utf8').split('\n')[:-1]
 
+    # Create list of chunks from the output of split:
     for line in m:
         line = line.replace("'",'')
         line = line.replace("\n",'')
         chunk = line.split('`')[-1]
         chunks.append(chunk)
         
-    return chunks
+    return chunks, delete_tmpdir
 
 #------------------------------------------------------------------------------#
 
@@ -148,12 +167,12 @@ def guess_by_ext(fn):
     if method:
         return method
     else:
-        msg = 'Don\'t know how "{0}" was compressed'.format(fn)
+        msg = 'Sorry, don\'t know how "{0}" was compressed'.format(fn)
         sys.exit(msg)
 
 #------------------------------------------------------------------------------#
 
-def ends(string,substring):
+def ends(string, substring):
     '''Returns True if "string" ends in "substring", and False otherwise.'''
     
     nc = len(substring)

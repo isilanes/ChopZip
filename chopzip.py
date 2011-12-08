@@ -68,6 +68,11 @@ parser.add_option("-v", "--verbose",
                   help="Be extra verbose. Default: don't be.",
 		  default=False)
 
+parser.add_option("-c", "--chunk-dir",
+                  help="Temporary directory where chunks will be placed. Default: current directory.",
+                  metavar="DIR",
+		  default='.')
+
 (o,args) = parser.parse_args()
 
 #--------------------------------------------------------------------------------#
@@ -79,6 +84,7 @@ if not o.ncpus:
 if o.timing:
     tm = LC.Timing()
 
+# Execute this if asked to decompress:
 if o.decompress:
     for fn in args:
         # Check that file exists:
@@ -101,6 +107,7 @@ if o.decompress:
             tm.milestone('Ended')
             print(tm.summary())
 
+# Otherwise, perform compression:
 else:
     for fn in args:
         # Check that file exists:
@@ -114,7 +121,7 @@ else:
         cc = LC.Compression(o)
         
         # Split in ncpu chunks:
-        chunks = LC.split_it(fn,o)
+        chunks, delete_tmpdir = LC.split_it(fn,o)
         
         if o.timing:
             tm.milestone('Chopped {0}'.format(fn))
@@ -134,9 +141,19 @@ else:
         # Remove uncompressed:
         os.unlink(fn)
         
-        # Remove tmp:
+        # Remove tmp chunks:
         for chunk in chunks:
             os.unlink(chunk+'.'+cc.ext)
+
+        # Remove tmp chunk dir, if told to do so:
+        if delete_tmpdir:
+            try:
+                os.rmdir(o.chunk_dir)
+            except:
+                # Warn that we could not delete (it's no error, just a warning):
+                fmt = 'Warning: tmp dir "{0}" could not be deleted (maybe it\'s not empty)'
+                msg = fmt.format(o.chunk_dir)
+                print(msg)
         
         if o.timing:
             tm.milestone('Ended')
