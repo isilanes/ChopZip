@@ -124,19 +124,19 @@ class Compression:
 #------------------------------------------------------------------------------#
 
 def count_cores():
-    '''
-    Function to count the number of available cores, to use them all if no
-    amount is defined by user.
-    '''
+    '''Function to count the number of available cores, to use them all if no
+    amount is defined by user. Default to 1 if we could not retrieve the info.'''
 
     ncores = 0
     fn = '/proc/cpuinfo'
 
-    f = open(fn)
-    for line in f:
-        if 'processor	:' in line:
-            ncores += 1
-    f.close()
+    try:
+        with open(fn,'r') as f:
+            for line in f:
+                if 'processor	:' in line:
+                    ncores += 1
+    except:
+        ncores = 1
 
     return ncores
 
