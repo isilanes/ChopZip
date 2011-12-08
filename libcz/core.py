@@ -35,20 +35,18 @@ def split_it(fn,opts):
 #------------------------------------------------------------------------------#
 
 class Compression:
-    '''
-    This class holds vars and methods for compression.
-    '''
+    '''This class holds vars and methods for compression.'''
 
     m = { 
             'xz' : {
-                'ext' : 'xz',
-                'com' : 'xz',
-                'dec' : 'xz -d',
+                'ext' : 'xz',   # extension of compressed files, as in "blah.ext"
+                'com' : 'xz',   # name of compressing command
+                'dec' : 'xz -d',# name of decompressing command
                 }
             }
 
 
-    def __init__(self,opts):
+    def __init__(self, opts):
         try:
             method = opts.method
             self.ext = self.m[method]['ext']
@@ -63,9 +61,7 @@ class Compression:
     # ----- #
 
     def decompress(self, fn):
-        '''
-        Method to decompress given file "fn".
-        '''
+        ''' Method to decompress given file "fn".'''
 
         cmnd = '{0} "{1}"'.format(self.dec, fn)
         if self.o.verbose:
@@ -77,10 +73,8 @@ class Compression:
     # ----- #
 
     def compress_chunks(self, chunks):
-        '''
-        Method to compress a given file in parallel, by compressing its
-        chunks "chunks".
-        '''
+        '''Method to compress a given file in parallel, by compressing its
+        chunks "chunks".'''
 
         # Create one compression thread per chunk:
         pd  = []
@@ -105,9 +99,7 @@ class Compression:
     # ----- #
 
     def join_chunks(self, chunks, fn):
-        '''
-        Method to join given chunks "chunks" into given file "fn".
-        '''
+        '''Method to join given chunks "chunks" into given file "fn".'''
 
         cmnd = 'cat '
         for chunk in chunks:
@@ -143,10 +135,8 @@ def count_cores():
 #------------------------------------------------------------------------------#
 
 def guess_by_ext(fn):
-    '''
-    Take the file name "fn" of an alleged compressed file, and guess 
-    the compression method by the extension.
-    '''
+    '''Take the file name "fn" of an alleged compressed file, and guess 
+    the compression method by the extension.'''
 
     method = None
 
@@ -164,9 +154,7 @@ def guess_by_ext(fn):
 #------------------------------------------------------------------------------#
 
 def ends(string,substring):
-    '''
-    Returns True if "string" ends in "substring", and False otherwise.
-    '''
+    '''Returns True if "string" ends in "substring", and False otherwise.'''
     
     nc = len(substring)
     ending = ''.join(string[-nc:])
@@ -179,13 +167,11 @@ def ends(string,substring):
 #------------------------------------------------------------------------------#
 
 def isfile(fn):
-    '''
-    Die if file "fn" is not present.
-    '''
+    '''Die if file "fn" is not present.'''
 
     if not os.path.isfile(fn):
-        fmt = 'Error: you requested operation on file "%s", but I can not find it!'
-        msg = fmt % (fn)
+        fmt = 'Error: you requested operation on file "{0}", but I can not find it!'
+        msg = fmt.format(fn)
         sys.exit(msg)
 
 #------------------------------------------------------------------------------#
