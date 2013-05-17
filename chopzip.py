@@ -43,9 +43,14 @@ parser.add_option("-d","--decompress",
                   help    = "Decompress file. Default: compress.",
                   default = False)
 
-parser.add_option("-n","--ncpus",
-                  help    = "Number of CPUs to use. Default: autodetect number of cores.",
+parser.add_option("-n","--ncores",
+                  help    = "Number of cores to use. Default: autodetect number of cores.",
 		  type    = 'int',
+                  default = None)
+
+parser.add_option("-s","--chunksize",
+                  help    = "Size of chunks to split file into (e.g. 1K, 1M, 1G). Default: total size/ncores.",
+		  type    = 'str',
                   default = None)
 
 parser.add_option("-l","--level",
@@ -83,8 +88,8 @@ parser.add_option("-a", "--command-args",
 #--------------------------------------------------------------------------------#
 
 # If number of cores not given, use them all:
-if not o.ncpus:
-    o.ncpus = LC.count_cores()
+if not o.ncores:
+    o.ncores = LC.count_cores()
 
 if o.timing:
     tm = LC.Timing()

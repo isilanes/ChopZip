@@ -7,8 +7,10 @@ import subprocess as sp
 #------------------------------------------------------------------------------#
 
 def split_it(fn, opts):
-    ''' Function that takes a "fn" file name and makes "opts.ncpus" equal pieces 
-    out of it. It returns the list of filenames for the chunks.'''
+    ''' Function that takes a "fn" file name and makes "opts.ncores" equal pieces 
+    out of it. If opts.chunksize is given, make chunks of that size instead.
+    
+    It returns the list of filenames for the chunks.'''
 
     ocd = opts.chunk_dir
 
@@ -28,8 +30,11 @@ def split_it(fn, opts):
     chunks = []
     
     # Calculate size of each chunk:
-    total_size = os.path.getsize(fn)
-    chunk_size = math.trunc(total_size/opts.ncpus) + 1
+    if opts.chunksize:
+        chunk_size = opts.chunksize
+    else:
+        total_size = os.path.getsize(fn)
+        chunk_size = math.trunc(total_size/opts.ncores) + 1
 
     # Use the "split" command to make actual splitting:
     fmt = 'split --verbose -b {0} -a 3 -d "{1}" "{2}/{1}.chunk."'
@@ -95,18 +100,23 @@ class Compression:
         '''Method to compress a given file in parallel, by compressing its
         chunks "chunks".'''
 
-        # Create one compression thread per chunk:
+        # Create a list of remaining (uncompressed) chunks:
+        remaining = chunks[:]
+
+        # Create a list of compression threads, up to opts.ncores, and
+        # fill it with remaining chunks as threads are finished, while
+        # chunks remain in remaining:
         pd  = []
+        while len(pd) < self.o.ncores or remaining:
+            # Pop a new chunk into new compression thread, if less than opts.ncores:
+            if len(pd) < self.o.ncores and remaining:
+                current = remaining.pop()
+                cmnd = '{0} -{1.level} {1.command_args} "{2}"'.format(self.com, self.o, current)
+                if self.o.verbose:
+                    print(cmnd)
+                pd.append(sp.Popen(cmnd,shell=True))
 
-        for chunk in chunks:
-            cmnd = '{0} -{1.level} {1.command_args} "{2}"'.format(self.com, self.o, chunk)
-            if self.o.verbose:
-                print(cmnd)
-
-            pd.append(sp.Popen(cmnd,shell=True))
-        
-        # Wait for all processes to finish:
-        while pd:
+            # Check if any thread finished, and take it out of the thread list if so:
             new_pd = []
             for p in pd:
                 finished = p.poll()
@@ -114,6 +124,13 @@ class Compression:
                     new_pd.append(p)
                     time.sleep(0.1)
             pd = new_pd[:]
+
+            # If done, quit:
+            if not pd and not remaining:
+                break
+
+            # Sleep before next cycle:
+            time.sleep(0.1)
 
     # ----- #
 
