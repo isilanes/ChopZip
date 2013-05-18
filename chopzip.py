@@ -3,7 +3,7 @@
 
 '''
 ChopZip
-(c) 2009-2011, Iñaki Silanes
+(c) 2009-2013, Iñaki Silanes
 
 LICENSE
 
