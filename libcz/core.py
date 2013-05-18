@@ -107,15 +107,7 @@ class Compression:
         # fill it with remaining chunks as threads are finished, while
         # chunks remain in remaining:
         pd  = []
-        while len(pd) < self.o.ncores or remaining:
-            # Pop a new chunk into new compression thread, if less than opts.ncores:
-            if len(pd) < self.o.ncores and remaining:
-                current = remaining.pop()
-                cmnd = '{0} -{1.level} {1.command_args} "{2}"'.format(self.com, self.o, current)
-                if self.o.verbose:
-                    print(cmnd)
-                pd.append(sp.Popen(cmnd,shell=True))
-
+        while True:
             # Check if any thread finished, and take it out of the thread list if so:
             new_pd = []
             for p in pd:
@@ -124,6 +116,14 @@ class Compression:
                     new_pd.append(p)
                     time.sleep(0.1)
             pd = new_pd[:]
+
+            # Pop a new chunk into new compression thread, if less than opts.ncores:
+            if len(pd) < self.o.ncores and remaining:
+                current = remaining.pop()
+                cmnd = '{0} -{1.level} {1.command_args} "{2}"'.format(self.com, self.o, current)
+                if self.o.verbose:
+                    print(cmnd)
+                pd.append(sp.Popen(cmnd,shell=True))
 
             # If done, quit:
             if not pd and not remaining:
