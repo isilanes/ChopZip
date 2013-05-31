@@ -46,6 +46,7 @@ def split_it(fn, opts):
     
     # Get the output of split (list of chunk filenames):
     m = str(s[0], encoding='utf8').split('\n')[:-1]
+    m = [ x.split()[-1][1:-1] for x in m ]
 
     # Create list of chunks from the output of split:
     for line in m:
