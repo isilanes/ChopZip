@@ -62,13 +62,14 @@ class ChopZip(object):
     def run(self):
         """Run the whole thing."""
 
+        # Create a lock for using when no concurrency is needed:
         self.lock = mp.Lock()
 
-        for chunk in self.chunk_read():
+        while True:
             # Feed a new process if pool low:
-            if len(self.procs) < self.NPROCS:
-                self.feed_chunk_to_compress_queue(chunk)
+            self.feed_compression_queue_if_low()
 
+            # Serial stuff:
             self.lock.acquire()
             print("cycle", [i for i in self.compressed_chunks])
 
@@ -81,11 +82,20 @@ class ChopZip(object):
             self.lock.release()
 
             time.sleep(1.0)
-            #if len(self.procs) == self.nprocs:
-            #    time.sleep(10.0)
+
+            # When to exit:
+            if self.job_is_done:
+                break
+
+    def feed_compression_queue_if_low(self):
+        """Feed compression queue, if low."""
+
+        chunk = self.chunk_read()
+        if chunk and len(self.procs) < self.NPROCS:
+            self.feed_chunk_to_compress_queue(chunk)
 
     def feed_chunk_to_compress_queue(self, chunk):
-        """Read next data chunk and feed it to compression loop."""
+        """Feed given data chunk to compression loop."""
 
         p = mp.Process(target=self.compress_chunk, args=(chunk, self.index_read, self.lock))
         p.daemon = True
@@ -97,11 +107,6 @@ class ChopZip(object):
     def clean_proc_list(self):
         """Remove completed processes from process list."""
 
-        #alive = []
-        #for p in self.procs:
-        #    if p.is_alive():
-        #        alive.append(p)
-        #self.procs = alive[:]
         self.procs = [p for p in self.procs if p.is_alive()]
 
     def save_ordered_chunks_to_disk(self):
@@ -116,7 +121,26 @@ class ChopZip(object):
             else:
                 break
 
-        self.index_write = 1
+        self.index_write = i
+
+    @property
+    def job_is_done(self):
+        """Return True if job is done, False otherwise."""
+
+        # If any compression still running, job not done:
+        if self.procs:
+            return False
+        
+        # If input file still not fully read, job not done:
+        #return False
+
+        # If any chunk in memory still not written, job not done:
+        if self.compressed_chunks:
+            return False
+
+        # Else, return True:
+        return True
+
 
 
 # Code:
