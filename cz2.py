@@ -30,34 +30,7 @@ class ChopZip(object):
         self.procs = []
         self.index_read = 0
         self.index_write = 0
-        self.compressed_chunks = {}
-
-    def chunk_read(self):
-        """Iterable over data chunks read from input."""
-
-        while True:
-            data = self.fin.read(self.CHUNK_SIZE)
-            if not data:
-                break
-            yield data
-
-    def compress_chunk(self, chunk, i, lock):
-        """Take a single data chunk and compress it."""
-
-        compressed_chunk = lzma.compress(chunk)
-        lock.acquire()
-        try:
-            with open("tmp", "rb") as f:
-                d = pickle.load(f)
-        except:
-            d = {}
-
-        d[i] = compressed_chunk
-        with open("tmp", "w") as f:
-            pickle.dump(d, f)
-
-        lock.release()
-        print("chunk compressed:", i, [x for x  in d])
+        self.compressed_chunks = {} # temporary in-memory compressed chunk cache
 
     def run(self):
         """Run the whole thing."""
@@ -68,17 +41,20 @@ class ChopZip(object):
         while True:
             # Feed a new process if pool low:
             self.feed_compression_queue_if_low()
+            print("proc list, after feed:", self.procs)
 
             # Serial stuff:
-            self.lock.acquire()
-            print("cycle", [i for i in self.compressed_chunks])
+            #self.lock.acquire()
 
             # Remove completed processes from process list:
             self.clean_proc_list()
+            print("proc list, after clean:", self.procs)
 
             # Try to save to disk:
+            self.lock.acquire()
+            print("chunk list, before saving", self.compressed_chunks.keys())
             self.save_ordered_chunks_to_disk()
-
+            print("chunk list, after saving", self.compressed_chunks.keys())
             self.lock.release()
 
             time.sleep(1.0)
@@ -90,7 +66,7 @@ class ChopZip(object):
     def feed_compression_queue_if_low(self):
         """Feed compression queue, if low."""
 
-        chunk = self.chunk_read()
+        chunk = self.read_chunk()
         if chunk and len(self.procs) < self.NPROCS:
             self.feed_chunk_to_compress_queue(chunk)
 
@@ -104,6 +80,21 @@ class ChopZip(object):
         print("chunk read, index:", self.index_read)
         self.index_read += 1
 
+    def read_chunk(self):
+        """Read a single data chunk, and return it."""
+
+        return self.fin.read(self.CHUNK_SIZE)
+
+    def compress_chunk(self, chunk, i, lock):
+        """Take a single data chunk and compress it.
+        Save result in memory, awaiting write."""
+
+        lock.acquire()
+        self.compressed_chunks[i] = lzma.compress(chunk)
+        lock.release()
+
+        print("compressed_chunks:", self.compressed_chunks.keys())
+
     def clean_proc_list(self):
         """Remove completed processes from process list."""
 
@@ -113,12 +104,17 @@ class ChopZip(object):
         """Take all compressed chunks in memory and save all the consecutive ones at the beginning."""
 
         i = self.index_write
+        print(self.compressed_chunks)
         while True:
+            print("trying to save chunk", i)
             if i in self.compressed_chunks:
+                print("chunk in compressed_chunks:", i)
                 self.fout.write(self.compressed_chunks[i])
-                del self.compressed_chunks[i]
+                #del self.compressed_chunks[i]
+                print("chunk", i, "saved")
                 i += 1
             else:
+                print(i, "not in", self.compressed_chunks)
                 break
 
         self.index_write = i
