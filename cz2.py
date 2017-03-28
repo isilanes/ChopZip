@@ -8,135 +8,81 @@ import multiprocessing as mp
 def main():
     """Main function."""
 
-    fn_in = "somefile"
-    fn_out = fn_in + ".xz"
+    fn_in = "somefile.big"
+    fn_out = "out.xz"
 
-    with open(fn_out, "w") as fout:
-        with open(fn_in, 'rb') as fin:
-            CZ = ChopZip(fin, fout)
-            CZ.run()
+    CZ = ChopZip(fn_in, fn_out)
+    CZ.run()
 
 
 # Classes:
 class ChopZip(object):
     """Class with all methods."""
 
-    CHUNK_SIZE = 10*1024*1024
+    CHUNK_SIZE = 20*1024*1024
     NPROCS = 4
 
-    def __init__(self, fin, fout):
-        self.fin = fin
-        self.fout = fout
-        self.procs = []
-        self.index_read = 0
-        self.index_write = 0
-        self.compressed_chunks = {} # temporary in-memory compressed chunk cache
+    def __init__(self, fn_in, fn_out):
+        self.fn_in = fn_in
+        self.fn_out = fn_out
+        self.pool = mp.Pool(processes=self.NPROCS)
 
     def run(self):
         """Run the whole thing."""
 
-        # Create a lock for using when no concurrency is needed:
-        self.lock = mp.Lock()
+        # Compression loop:
+        with open(self.fn_in, 'rb') as self.fin:
+            with open(self.fn_out, "wb") as self.fout:
+                for compressed_chunk in self.pool.imap(lzma.compress, self.chunk_reader()):
+                    self.write_chunk(compressed_chunk)
+
+        # Clean:
+        self.clean()
+
+    def clean(self):
+        """Perform required cleanup."""
+
+        # Close process pool:
+        self.pool.close()
+        self.pool.join()
+
+        # Save any remaining compressed chunk:
+        for i in sorted(self.compressed_chunks):
+            self.fout.write(self.compressed_chunks[i])
+
+    def chunk_reader(self):
+        """Generator for reading input as chunks."""
 
         while True:
-            # Feed a new process if pool low:
-            self.feed_compression_queue_if_low()
-            print("proc list, after feed:", self.procs)
-
-            # Serial stuff:
-            #self.lock.acquire()
-
-            # Remove completed processes from process list:
-            self.clean_proc_list()
-            print("proc list, after clean:", self.procs)
-
-            # Try to save to disk:
-            self.lock.acquire()
-            print("chunk list, before saving", self.compressed_chunks.keys())
-            self.save_ordered_chunks_to_disk()
-            print("chunk list, after saving", self.compressed_chunks.keys())
-            self.lock.release()
-
-            time.sleep(1.0)
-
-            # When to exit:
-            if self.job_is_done:
+            chunk = self.read_chunk()
+            if not chunk:
                 break
 
-    def feed_compression_queue_if_low(self):
-        """Feed compression queue, if low."""
-
-        chunk = self.read_chunk()
-        if chunk and len(self.procs) < self.NPROCS:
-            self.feed_chunk_to_compress_queue(chunk)
-
-    def feed_chunk_to_compress_queue(self, chunk):
-        """Feed given data chunk to compression loop."""
-
-        p = mp.Process(target=self.compress_chunk, args=(chunk, self.index_read, self.lock))
-        p.daemon = True
-        p.start()
-        self.procs.append(p)
-        print("chunk read, index:", self.index_read)
-        self.index_read += 1
+            yield chunk
 
     def read_chunk(self):
         """Read a single data chunk, and return it."""
 
         return self.fin.read(self.CHUNK_SIZE)
 
-    def compress_chunk(self, chunk, i, lock):
-        """Take a single data chunk and compress it.
-        Save result in memory, awaiting write."""
-
-        lock.acquire()
-        self.compressed_chunks[i] = lzma.compress(chunk)
-        lock.release()
-
-        print("compressed_chunks:", self.compressed_chunks.keys())
-
-    def clean_proc_list(self):
-        """Remove completed processes from process list."""
-
-        self.procs = [p for p in self.procs if p.is_alive()]
-
     def save_ordered_chunks_to_disk(self):
         """Take all compressed chunks in memory and save all the consecutive ones at the beginning."""
 
         i = self.index_write
-        print(self.compressed_chunks)
         while True:
-            print("trying to save chunk", i)
             if i in self.compressed_chunks:
-                print("chunk in compressed_chunks:", i)
-                self.fout.write(self.compressed_chunks[i])
-                #del self.compressed_chunks[i]
-                print("chunk", i, "saved")
+                self.write_chunk(self.compressed_chunks[i])
+                del self.compressed_chunks[i]
                 i += 1
             else:
-                print(i, "not in", self.compressed_chunks)
                 break
 
         self.index_write = i
 
-    @property
-    def job_is_done(self):
-        """Return True if job is done, False otherwise."""
-
-        # If any compression still running, job not done:
-        if self.procs:
-            return False
+    def write_chunk(self, chunk):
+        """Write chunk to disk."""
         
-        # If input file still not fully read, job not done:
-        #return False
-
-        # If any chunk in memory still not written, job not done:
-        if self.compressed_chunks:
-            return False
-
-        # Else, return True:
-        return True
-
+        self.fout.write(chunk)
 
 
 # Code:
