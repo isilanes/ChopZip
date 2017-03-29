@@ -1,0 +1,4 @@
+              --- xz -----------------  --- cz2 -n 1 -----------  --- cz2 -n 2 -----------  --- cz2 -n 4 -----------
+File    Size  Size compressed     Time  Size compressed     Time  Size compressed     Time  Size compressed     Time
+   A  113 kB            28 kB    0.1 s            28 kB    0.2 s            28 kB    0.2 s            28 kB    0.2 s
+   B  725 MB           217 MB  329.7 s           219 MB  332.0 s           219 MB  177.4 s           219 MB  104.0 s

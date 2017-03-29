@@ -1,9 +1,9 @@
 #!/usr/bin/python3
 # coding=utf-8
 
-'''
+"""
 ChopZip
-(c) 2009-2013, Iñaki Silanes
+(c) 2009-2013, 2017, Iñaki Silanes
 
 LICENSE
 
@@ -18,7 +18,7 @@ for more details (http://www.gnu.org/licenses/gpl.txt).
 
 DESCRIPTION
 
-(De)compresses files with LZMA/gzip/xz/lzip in parallel.
+(De)compresses files with XZ/gzip in parallel.
 
 USAGE
 
@@ -27,144 +27,198 @@ USAGE
 for options:
 
 % chopzip -h 
-'''
+"""
 
+# Standard libs:
 import os
-import optparse
-import libcz.core as LC
+import gzip
+import lzma
+import argparse
+import multiprocessing as mp
 
-#--------------------------------------------------------------------------------#
+# Constants:
+MB = 1024*1024
 
-# Read arguments:
-parser = optparse.OptionParser()
+# Functions:
+def main():
+    """Main function."""
 
-parser.add_option("-d","--decompress",
-                  action  = "store_true",
-                  help    = "Decompress file. Default: compress.",
-                  default = False)
+    # Parse command line arguments:
+    opts = parse_args()
 
-parser.add_option("-n","--ncores",
-                  help    = "Number of cores to use. Default: autodetect number of cores.",
-		  type    = 'int',
-                  default = None)
+    # Choose method:
+    if opts.gzip:
+        Method = Gzip
+    else:
+        Method = XZ
 
-parser.add_option("-s","--chunksize",
-                  help    = "Size of chunks to split file into (e.g. 1K, 1M, 1G). Default: total size/ncores.",
-		  type    = 'str',
-                  default = None)
+    # Compress each file requested:
+    for input_fn in opts.positional:
+        method = Method(opts, input_fn)
+        method.run()
 
-parser.add_option("-l","--level",
-                  help    = "Compression level (1 min to 9 max). Default: 3.",
-		  type    = 'int',
-                  default = 3)
+def parse_args():
+    """Read and parse arguments"""
+    
+    parser = argparse.ArgumentParser()
+    
+    parser.add_argument("positional",
+                        nargs='+',
+                        metavar="X",
+                        help="Positional arguments")
+    
+    parser.add_argument("-n", "--ncores",
+                        help="Amount of cores. Default: detect.",
+                        type=int,
+                        default=0)
+    
+    parser.add_argument("-k", "--keep-input",
+                        help="Keep uncompressed file. Default: delete it, once compressed.",
+                        action="store_true",
+                        default=False)
+    
+    parser.add_argument("-s", "--chunk-size",
+                        help="Read chunk size, in MB. Default: automatic.",
+                        type=float,
+                        default=None)
+    
+    parser.add_argument("--gzip",
+                        help="Compress using gzip. Default: use XZ.",
+                        action="store_true",
+                        default=False)
+    
+    
+    return parser.parse_args()
 
-parser.add_option("-m","--method",
-                  help    = "Compression method. Available: gzip, lzma, xz. Default: xz to compress, select by extension to decompress.",
-		  type    = 'str',
-                  default = None)
 
-parser.add_option("-T", "--timing",
-                  action="store_true",
-                  help="Ask for timing of various steps. Default: don't.",
-		  default=False)
+# Classes:
+class ChopZip(object):
+    """Class with all methods."""
 
-parser.add_option("-v", "--verbose",
-                  action="store_true",
-                  help="Be extra verbose. Default: don't be.",
-		  default=False)
+    MINIMUM_CHUNK_SIZE = 1*MB
+    MAXIMUM_CHUNK_SIZE = 25*MB
+    DEFAULT_NPROCS = 1
 
-parser.add_option("-c", "--chunk-dir",
-                  help="Temporary directory where chunks will be placed. Default: current directory.",
-                  metavar="DIR",
-		  default='.')
+    def __init__(self, opts, input_fn):
+        self.opts = opts
+        self.input_fn = input_fn
+        self.pool = mp.Pool(processes=self.ncores)
 
-parser.add_option("-a", "--command-args",
-                  help="Argument(s) to pass directly to compression program. If more than one, or including dashes, enclose within quotes. Default: None.",
-                  metavar="ARGS",
-		  default='')
+    def run(self):
+        """Run the whole thing."""
 
-(o,args) = parser.parse_args()
+        # Compression loop:
+        with open(self.input_fn, 'rb') as self.fhandle_in:
+            with open(self.output_fn, "wb") as self.fhandle_out:
+                for compressed_chunk in self.pool.imap(lzma.compress, self.chunk_reader()):
+                    self.write_chunk(compressed_chunk)
 
-#--------------------------------------------------------------------------------#
+        # Clean:
+        self.clean()
 
-# If number of cores not given, use them all:
-if not o.ncores:
-    o.ncores = LC.count_cores()
+    def clean(self):
+        """Perform required cleanup."""
 
-if o.timing:
-    tm = LC.Timing()
+        # Close process pool:
+        self.pool.close()
+        self.pool.join()
 
-# Execute this if asked to decompress:
-if o.decompress:
-    for fn in args:
-        # Check that file exists:
-        LC.isfile(fn)
+        # Delete input file, if not requested not to:
+        if not self.opts.keep_input:
+            os.unlink(self.input_fn)
+
+    def chunk_reader(self):
+        """Generator for reading input as chunks."""
+
+        while True:
+            chunk = self.read_chunk()
+            if not chunk:
+                break
+
+            yield chunk
+
+    def read_chunk(self):
+        """Read a single data chunk, and return it."""
+
+        return self.fhandle_in.read(self.chunk_size)
+
+    def write_chunk(self, chunk):
+        """Write chunk to disk."""
         
-        # If not defined explicitly, guess format by extension:
-        if not o.method:
-            o.method = LC.guess_by_ext(fn)
-            
-        # Create main object:
-        cc = LC.Compression(o)
-                
-        # Decompress:
-        cc.decompress(fn)
-        
-        if o.timing: 
-            tm.milestone('Decompressed {0}'.format(fn))
-            
-        if o.timing:
-            tm.milestone('Ended')
-            print(tm.summary())
+        self.fhandle_out.write(chunk)
 
-# Otherwise, perform compression:
-else:
-    for fn in args:
-        # Check that file exists:
-        LC.isfile(fn)
-        
-        # Default method if none specified:
-        if not o.method: 
-            o.method = 'xz'
-            
-        # Create main object:
-        cc = LC.Compression(o)
-        
-        # Split in ncpu chunks:
-        chunks, delete_tmpdir = LC.split_it(fn,o)
-        
-        if o.timing:
-            tm.milestone('Chopped {0}'.format(fn))
-            
-        # Compress:
-        cc.compress_chunks(chunks)
+    @property
+    def output_fn(self):
+        """Return name of output file."""
 
-        if o.timing:
-            tm.milestone('Compressed chunks of {0}'.format(fn))
+        return ".".join([self.input_fn, self.EXTENSION])
 
-        # Join chunks:
-        cc.join_chunks( chunks, fn)
-        
-        if o.timing: 
-            tm.milestone('Joined chunks of {0}'.format(fn))
-            
-        # Remove uncompressed:
-        os.unlink(fn)
-        
-        # Remove tmp chunks:
-        for chunk in chunks:
-            os.unlink(chunk+'.'+cc.ext)
+    @property
+    def ncores(self):
+        """Return amount of cores to use/processes to spawn."""
 
-        # Remove tmp chunk dir, if told to do so:
-        if delete_tmpdir:
+        if self.opts.ncores:
+            return self.opts.ncores
+        else:
             try:
-                os.rmdir(o.chunk_dir)
+                return mp.cpu_count()
             except:
-                # Warn that we could not delete (it's no error, just a warning):
-                fmt = 'Warning: tmp dir "{0}" could not be deleted (maybe it\'s not empty)'
-                msg = fmt.format(o.chunk_dir)
-                print(msg)
-        
-        if o.timing:
-            tm.milestone('Ended')
-            print(tm.summary())
+                return self.DEFAULT_NPROCS
+
+    @property
+    def chunk_size(self):
+        """Return size of data chunk to be read and compressed per process."""
+
+        # If requested by user, use that:
+        if self.opts.chunk_size:
+            return self.opts.chunk_size * MB
+
+        # First try, file size divided by amount of cores:
+        cs = os.path.getsize(self.input_fn) // self.ncores + 1
+
+        if cs < self.MINIMUM_CHUNK_SIZE:
+            return self.MINIMUM_CHUNK_SIZE
+
+        if cs > self.MAXIMUM_CHUNK_SIZE:
+            return self.MAXIMUM_CHUNK_SIZE
+
+        return cs
+
+class XZ(ChopZip):
+    """Class for using XZ."""
+
+    EXTENSION = "xz"
+
+    def run(self):
+        """Run the whole thing."""
+
+        # Compression loop:
+        with open(self.input_fn, 'rb') as self.fhandle_in:
+            with open(self.output_fn, "wb") as self.fhandle_out:
+                for compressed_chunk in self.pool.imap(lzma.compress, self.chunk_reader()):
+                    self.write_chunk(compressed_chunk)
+
+        # Clean:
+        self.clean()
+
+class Gzip(ChopZip):
+    """Class for using gzip."""
+
+    EXTENSION = "gz"
+
+    def run(self):
+        """Run the whole thing."""
+
+        # Compression loop:
+        with open(self.input_fn, 'rb') as self.fhandle_in:
+            with open(self.output_fn, "wb") as self.fhandle_out:
+                for compressed_chunk in self.pool.imap(gzip.compress, self.chunk_reader()):
+                    self.write_chunk(compressed_chunk)
+
+        # Clean:
+        self.clean()
+
+
+# Code:
+if __name__ == "__main__":
+    main()
