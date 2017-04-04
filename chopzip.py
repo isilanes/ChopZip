@@ -26,7 +26,7 @@ USAGE
 
 for options:
 
-% chopzip -h 
+% chopzip -h
 """
 
 # Standard libs:
@@ -48,46 +48,46 @@ def main():
 
     # Choose method:
     if opts.gzip:
-        Method = Gzip
+        compressor = Gzip
     else:
-        Method = XZ
+        compressor = XZ
 
     # Compress each file requested:
     for input_fn in opts.positional:
-        method = Method(opts, input_fn)
+        method = compressor(opts, input_fn)
         method.run()
 
 def parse_args():
     """Read and parse arguments"""
-    
+
     parser = argparse.ArgumentParser()
-    
+
     parser.add_argument("positional",
                         nargs='+',
                         metavar="X",
                         help="Positional arguments")
-    
+
     parser.add_argument("-n", "--ncores",
                         help="Amount of cores. Default: detect.",
                         type=int,
                         default=0)
-    
+
     parser.add_argument("-k", "--keep-input",
                         help="Keep uncompressed file. Default: delete it, once compressed.",
                         action="store_true",
                         default=False)
-    
+
     parser.add_argument("-s", "--chunk-size",
                         help="Read chunk size, in MB. Default: automatic.",
                         type=float,
                         default=None)
-    
+
     parser.add_argument("--gzip",
                         help="Compress using gzip. Default: use XZ.",
                         action="store_true",
                         default=False)
-    
-    
+
+
     return parser.parse_args()
 
 
@@ -98,11 +98,14 @@ class ChopZip(object):
     MINIMUM_CHUNK_SIZE = 1*MB
     MAXIMUM_CHUNK_SIZE = 25*MB
     DEFAULT_NPROCS = 1
+    EXTENSION = "xz"
 
     def __init__(self, opts, input_fn):
         self.opts = opts
         self.input_fn = input_fn
         self.pool = mp.Pool(processes=self.ncores)
+        self.fhandle_in = None
+        self.fhandle_out = None
 
     def run(self):
         """Run the whole thing."""
@@ -144,7 +147,7 @@ class ChopZip(object):
 
     def write_chunk(self, chunk):
         """Write chunk to disk."""
-        
+
         self.fhandle_out.write(chunk)
 
     @property
@@ -162,7 +165,7 @@ class ChopZip(object):
         else:
             try:
                 return mp.cpu_count()
-            except:
+            except NotImplementedError:
                 return self.DEFAULT_NPROCS
 
     @property
@@ -174,15 +177,15 @@ class ChopZip(object):
             return self.opts.chunk_size * MB
 
         # First try, file size divided by amount of cores:
-        cs = os.path.getsize(self.input_fn) // self.ncores + 1
+        chunk_size = os.path.getsize(self.input_fn) // self.ncores + 1
 
-        if cs < self.MINIMUM_CHUNK_SIZE:
+        if chunk_size < self.MINIMUM_CHUNK_SIZE:
             return self.MINIMUM_CHUNK_SIZE
 
-        if cs > self.MAXIMUM_CHUNK_SIZE:
+        if chunk_size > self.MAXIMUM_CHUNK_SIZE:
             return self.MAXIMUM_CHUNK_SIZE
 
-        return cs
+        return chunk_size
 
 class XZ(ChopZip):
     """Class for using XZ."""
